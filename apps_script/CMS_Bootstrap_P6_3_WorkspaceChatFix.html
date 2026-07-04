@@ -1,0 +1,264 @@
+<!-- P6.3 Workspace UX + Chat + Stage Action Hotfix -->
+<style>
+.p63-grid{display:grid;grid-template-columns:1fr 420px;gap:16px}
+.p63-case{background:linear-gradient(135deg,#0f766e,#0ea5e9);color:#fff;border-radius:20px;padding:18px;box-shadow:0 14px 30px rgba(15,118,110,.15)}
+.p63-case h2{font-size:26px;margin:3px 0 16px;font-weight:950}
+.p63-case-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.p63-info-box{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);border-radius:14px;padding:12px}
+.p63-info-box span{display:block;font-size:10px;text-transform:uppercase;font-weight:900;opacity:.8}
+.p63-info-box b{display:block;margin-top:4px;line-height:1.25}
+.p63-status{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.26);border-radius:16px;padding:14px}
+.p63-action-row{display:flex;gap:8px;flex-wrap:wrap}
+.p63-btn{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#0f766e;color:#fff;box-shadow:0 8px 18px rgba(15,118,110,.14)}
+.p63-btn.warning{background:#d97706}.p63-btn.danger{background:#dc2626}.p63-btn.soft{background:#dff7f2;color:#075e57}.p63-btn.secondary{background:#e2e8f0;color:#334155}
+.p63-chat{display:flex;flex-direction:column;gap:10px;max-height:480px;overflow:auto;padding:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px}
+.p63-bubble{max-width:86%;padding:10px 12px;border-radius:16px;background:#fff;border:1px solid #dbe7e5;box-shadow:0 6px 16px rgba(15,23,42,.04)}
+.p63-bubble.sales{align-self:flex-end;background:#e8f3ff;border-color:#bfdbfe}
+.p63-bubble.qa{align-self:flex-start;background:#f0fdfa;border-color:#99f6e4}
+.p63-bubble small{display:block;margin-top:5px;color:#64748b;font-size:11px}
+.p63-request-panel{border:1px solid #dbe7e5;border-radius:16px;padding:12px;background:#fff;margin-bottom:10px}
+.p63-input{width:100%;border:1px solid #cfe3de;border-radius:12px;padding:10px;min-height:78px}
+.p63-meta{font-size:12px;color:#64748b;font-weight:700}
+.p63-empty{border:1px dashed #cbd5e1;border-radius:14px;background:#f8fafc;padding:12px;color:#64748b}
+@media(max-width:1024px){.p63-grid{grid-template-columns:1fr}.p63-case-grid{grid-template-columns:1fr}}
+</style>
+
+<script>
+(function(){
+  function esc(v){return String(v == null ? '' : v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function val(){for(var i=0;i<arguments.length;i++){var v=arguments[i]; if(v!==undefined && v!==null && String(v).trim()!=='') return v;} return '';}
+  function qs(id){return document.getElementById(id);}
+  function set(id,html){var el=qs(id); if(el) el.innerHTML=html;}
+  function text(id,v){var el=qs(id); if(el) el.textContent=v == null ? '' : String(v);}
+  function loader(on){var el=qs('loader'); if(el) el.style.display=on?'flex':'none';}
+  function notify(title,msg){ if(typeof openNotify==='function') return openNotify(title,msg); alert((title?title+'\n':'')+(msg||'')); }
+  function showErr(msg){ if(typeof showError==='function') return showError(msg); notify('CMS Error',msg); }
+  function showOk(msg){ if(typeof showSuccess==='function') return showSuccess(msg); notify('Success',msg); }
+
+  window.openCmsDetail = function(complaintNo){
+    if(!complaintNo){ showErr('Complaint No missing'); return; }
+    window.CURRENT_COMPLAINT = { complaintNo: complaintNo };
+    if(typeof showPage === 'function') showPage('workspacePage');
+    loader(true);
+    google.script.run
+      .withSuccessHandler(function(res){
+        loader(false);
+        if(!res || res.status==='error'){ showErr((res&&res.message)||'Case load failed'); return; }
+        renderP63Workspace(res);
+      })
+      .withFailureHandler(function(err){
+        loader(false);
+        showErr((err&&err.message)||String(err||'Case load failed'));
+      })
+      .getCmsFastWorkspaceDataP6_3(complaintNo);
+  };
+
+  window.runFastStageAction = function(actionCode, complaintNo){
+    var no = complaintNo || (window.CURRENT_COMPLAINT && window.CURRENT_COMPLAINT.complaintNo) || '';
+    if(!no){ showErr('Complaint No missing'); return; }
+    var remark = '';
+    if(actionCode === 'REQUEST_MORE_INFO'){
+      remark = prompt('Write information required from Sales / Customer:') || '';
+      if(!remark.trim()) return;
+    } else if(actionCode === 'CLOSE_CASE' || actionCode === 'REOPEN_REVIEW'){
+      remark = prompt('Remark required:') || '';
+      if(!remark.trim()) return;
+    }
+    loader(true);
+    google.script.run
+      .withSuccessHandler(function(res){
+        loader(false);
+        if(!res || res.status==='error'){ showErr((res&&res.message)||'Stage update failed'); return; }
+        showOk('Stage updated');
+        window.openCmsDetail(no);
+        if(typeof loadCmsTrackingV2 === 'function') setTimeout(loadCmsTrackingV2,300);
+      })
+      .withFailureHandler(function(err){ loader(false); showErr((err&&err.message)||String(err||'Stage update failed')); })
+      .runCmsStageActionP6_3({complaintNo:no, actionCode:actionCode, remark:remark});
+  };
+
+  function renderP63Workspace(res){
+    var c = res.complaint || {};
+    var no = res.complaintNo || c.complaintNo || '';
+    window.CURRENT_COMPLAINT = c; window.CURRENT_COMPLAINT.complaintNo = no;
+    text('detailTitle', no);
+    text('trackingSubTitle', 'Complaint No: ' + no);
+
+    renderCase(c,res);
+    renderStages((res.tracking&&res.tracking.stages)||res.stages||[], no);
+    renderActions(res.stageActions||[], no);
+    renderInfo(res.info||{}, no);
+    renderCapa(res.capa||{}, no, res);
+    renderChat(res.chat || ((res.info&&res.info.chat)||[]), res.info||{}, no);
+    renderTimeline((res.tracking&&res.tracking.logs)||res.timeline||[]);
+  }
+
+  function renderCase(c,res){
+    var links = res.quickLinks || {};
+    var html = '<div class="p63-case"><div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">'+
+      '<div><div class="detail-kicker">Complaint / CAPA Case</div><h2>'+esc(val(c.complaintNo,res.complaintNo))+'</h2></div>'+
+      '<div class="p63-status"><span class="stage-pill big">'+esc(val(res.currentStage,c.currentStage,c.status,'Complaint Booked'))+'</span>'+
+      '<div class="mt-2"><b>Owner:</b> '+esc(val(res.stageOwner,c.stageOwner,''))+'</div>'+
+      '<div><b>CAPA:</b> '+esc(val(res.capaStatus,c.capaStatus,'Not started'))+'</div></div></div>'+
+      '<div class="p63-case-grid">'+
+      box('Customer', val(c.customer,c.customerName,c.location,c.hospital,'—'))+
+      box('Product', val(c.product,c.itemName,c.productName,'—'))+
+      box('Batch', val(c.batch,c.batchNo,c.batchNumber,'—'))+
+      box('Severity', val(c.severity,c.complaintType,'—'))+
+      box('Address', val(c.address,'—'))+
+      box('City / State', [val(c.city,''),val(c.state,'')].filter(Boolean).join(' / ') || '—')+
+      '</div></div>'+
+      '<div class="p63-action-row mt-3">'+
+      linkBtn('Open PDF', val(links.pdfUrl,c.pdfUrl))+
+      linkBtn('Open Folder', val(links.folderUrl,c.folderUrl))+
+      linkBtn('Public Tracking', val(links.publicTrackingUrl,c.publicTrackingUrl))+
+      '<button class="p63-btn soft" onclick="navigator.clipboard && navigator.clipboard.writeText(\''+esc(val(links.publicTrackingUrl,''))+'\')">Copy Tracking Link</button>'+
+      '</div>';
+    set('detailBody', html);
+  }
+  function box(k,v){return '<div class="p63-info-box"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>';}
+  function linkBtn(label,url){return url?'<a class="p63-btn soft" target="_blank" href="'+esc(url)+'">'+esc(label)+'</a>':'<button class="p63-btn secondary" disabled>'+esc(label)+'</button>';}
+
+  function renderStages(stages,no){
+    if(!stages.length){ set('stageProgress','<div class="p63-empty">No stage data.</div>'); return; }
+    set('stageProgress', stages.map(function(s,i){
+      var cls = String(s.status||'').toLowerCase();
+      var mark = cls==='done'?'✓':(cls==='active'?'•':'');
+      return '<div class="stage-box '+esc(cls)+'"><div class="stage-circle">'+mark+'</div><div class="stage-name">'+esc(s.stage||s.name||'')+'</div></div>';
+    }).join(''));
+  }
+
+  function renderActions(actions,no){
+    if(!actions.length){ set('simpleNextAction','<div class="p63-empty">No action available for your role/current stage.</div>'); return; }
+    set('simpleNextAction','<div class="p63-action-row">'+actions.map(function(a){
+      return '<button class="p63-btn '+esc(a.type||'')+'" onclick="runFastStageAction(\''+esc(a.code)+'\',\''+esc(no)+'\')">'+esc(a.label)+'</button>';
+    }).join('')+'</div>');
+  }
+
+  function renderInfo(info,no){
+    var reqs = info.requests || [];
+    var active = info.active || reqs.filter(function(r){return ['Open','Reopened','Sales Responded'].indexOf(String(r.status||''))>=0;})[0] || null;
+    text('infoRequestCounter',(reqs.length||0)+' / 3 Requests');
+    var timeline = [1,2,3].map(function(n){
+      var r=reqs[n-1], st=r?String(r.status||'').toLowerCase().replace(/\s+/g,'-'):'';
+      return '<div class="request-node '+esc(st)+'"><span class="request-dot">'+(r?'•':'')+'</span><b>Request '+n+'</b><span>'+(r?esc(r.status):'Not Used')+'</span></div>';
+    }).join('');
+    set('requestMiniTimeline', timeline);
+
+    var html = '';
+    if(active){
+      html += '<div class="p63-request-panel"><b>Active Request #'+esc(active.sequence||'')+'</b><div class="p63-meta">'+esc(active.status||'')+'</div><div class="mt-2">'+esc(active.question||'')+'</div></div>';
+      if(active.status==='Open' || active.status==='Reopened'){
+        html += '<textarea id="p63SalesResponse" class="p63-input" placeholder="Sales response / customer information"></textarea>'+
+        '<button class="p63-btn mt-2" onclick="submitP63SalesResponse(\''+esc(active.requestId)+'\')">Submit Sales Response</button>';
+      }
+      if(active.status==='Sales Responded'){
+        html += '<div class="p63-action-row"><button class="p63-btn" onclick="reviewP63Info(\''+esc(active.requestId)+'\',\'ACCEPT\')">Accept & Close</button>'+
+        '<button class="p63-btn warning" onclick="reviewP63Info(\''+esc(active.requestId)+'\',\'REOPEN\')">Reopen Request</button></div>';
+      }
+    } else {
+      html += '<div class="p63-empty">No active More Info request.</div>';
+    }
+    if(info.permissions && info.permissions.canRaise){
+      html += '<div class="mt-2"><textarea id="p63QaQuestion" class="p63-input" placeholder="Write information required from Sales / Customer"></textarea>'+
+      '<button class="p63-btn warning mt-2" onclick="raiseP63Info(\''+esc(no)+'\')">Raise More Info Request</button></div>';
+    }
+    set('infoRequestContent', html);
+  }
+
+  window.raiseP63Info=function(no){
+    var q=(qs('p63QaQuestion')||{}).value||''; if(!q.trim()){showErr('Request detail required');return;}
+    loader(true);
+    google.script.run.withSuccessHandler(function(){loader(false);showOk('Request raised');openCmsDetail(no);})
+      .withFailureHandler(function(e){loader(false);showErr((e&&e.message)||e);})
+      .raiseCmsInfoRequestP6_3({complaintNo:no, question:q});
+  };
+  window.submitP63SalesResponse=function(requestId){
+    var txt=(qs('p63SalesResponse')||{}).value||''; if(!txt.trim()){showErr('Response required');return;}
+    loader(true);
+    google.script.run.withSuccessHandler(function(res){loader(false);showOk('Response submitted');openCmsDetail(res.complaintNo);})
+      .withFailureHandler(function(e){loader(false);showErr((e&&e.message)||e);})
+      .respondCmsInfoRequestP6_3({requestId:requestId, response:txt});
+  };
+  window.reviewP63Info=function(requestId,decision){
+    var c = decision==='REOPEN' ? (prompt('Reason for reopen:')||'') : 'Accepted';
+    if(decision==='REOPEN' && !c.trim()) return;
+    loader(true);
+    google.script.run.withSuccessHandler(function(res){loader(false);showOk(res.message||'Updated');openCmsDetail(res.complaintNo);})
+      .withFailureHandler(function(e){loader(false);showErr((e&&e.message)||e);})
+      .reviewCmsInfoRequestP6_3({requestId:requestId, decision:decision, comment:c});
+  };
+
+  function renderCapa(capa,no,res){
+    var latest = capa.latest || {};
+    var html = '';
+    if(latest.documentUrl){
+      html += '<div class="p63-request-panel"><b>Latest CAPA Version '+esc(latest.version||'')+'</b><div class="p63-meta">'+esc(latest.status||'')+'</div>'+
+      '<a target="_blank" class="p63-btn soft mt-2" href="'+esc(latest.documentUrl)+'">View CAPA</a></div>';
+    } else {
+      html += '<div class="p63-empty">No CAPA uploaded yet.</div>';
+    }
+    if(capa.canUpload || (res.access && res.access.isAdmin)){
+      html += '<div class="mt-2"><input type="file" id="p63CapaFile" class="form-control" accept=".pdf,.doc,.docx,image/*">'+
+      '<textarea id="p63CapaRemark" class="p63-input mt-2" placeholder="CAPA upload remark"></textarea>'+
+      '<button class="p63-btn mt-2" onclick="uploadP63Capa(\''+esc(no)+'\')">Upload CAPA</button></div>';
+    }
+    if(capa.canSalesAction || (res.access && res.access.isAdmin && latest.documentUrl)){
+      html += '<div class="p63-action-row mt-2"><button class="p63-btn" onclick="verifyP63Capa(\''+esc(no)+'\')">Verify & Close</button>'+
+      '<button class="p63-btn warning" onclick="revisionP63Capa(\''+esc(no)+'\')">Request Revision</button></div>';
+    }
+    set('p4WorkspaceContent', html);
+  }
+  window.uploadP63Capa=function(no){
+    var f=(qs('p63CapaFile')||{}).files; if(!f||!f[0]){showErr('Select CAPA file');return;}
+    var reader=new FileReader();
+    reader.onload=function(){
+      loader(true);
+      google.script.run.withSuccessHandler(function(){loader(false);showOk('CAPA uploaded');openCmsDetail(no);})
+        .withFailureHandler(function(e){loader(false);showErr((e&&e.message)||e);})
+        .uploadCmsCapaDocumentP6_3({complaintNo:no, documentDataUrl:reader.result, remark:(qs('p63CapaRemark')||{}).value||''});
+    };
+    reader.readAsDataURL(f[0]);
+  };
+  window.verifyP63Capa=function(no){
+    var r=prompt('Verification remark:')||'CAPA verified';
+    loader(true); google.script.run.withSuccessHandler(function(){loader(false);showOk('CAPA verified and case closed');openCmsDetail(no);})
+      .withFailureHandler(function(e){loader(false);showErr((e&&e.message)||e);}).verifyCmsCapaDocumentP6_3({complaintNo:no, remark:r});
+  };
+  window.revisionP63Capa=function(no){
+    var r=prompt('Revision reason:')||''; if(!r.trim())return;
+    loader(true); google.script.run.withSuccessHandler(function(){loader(false);showOk('Revision requested');openCmsDetail(no);})
+      .withFailureHandler(function(e){loader(false);showErr((e&&e.message)||e);}).requestCmsCapaRevisionP6_3({complaintNo:no, remark:r});
+  };
+
+  function renderChat(chat,info,no){
+    if(!chat || !chat.length){ set('workspaceChatPanel','<div class="chat-empty">No request conversation yet.</div>'); return; }
+    set('workspaceChatPanel','<div class="p63-chat">'+chat.map(function(m){
+      var side = /sales/i.test(String(m.side||m.by||m.type||'')) ? 'sales':'qa';
+      return '<div class="p63-bubble '+side+'"><b>'+esc(m.by||side.toUpperCase())+'</b><div>'+esc(m.message||'')+'</div>'+
+      (m.attachmentUrl?'<a target="_blank" href="'+esc(m.attachmentUrl)+'">Attachment</a>':'')+
+      '<small>'+esc(m.at||'')+'</small></div>';
+    }).join('')+'</div>');
+  }
+
+  function renderTimeline(logs){
+    if(!logs || !logs.length){ set('trackingLogList','<div class="p63-empty">No timeline yet.</div>'); set('historyBox',''); return; }
+    set('trackingLogList', logs.map(function(l){
+      return '<div class="log-row"><div><div class="log-date">'+esc((l.date||l.createdAt||'').slice(0,10))+'</div><div class="log-time">'+esc((l.time||'').slice(0,8))+'</div></div><div class="log-dot">✓</div><div><div class="log-stage">'+esc(l.stage||l.newStage||'')+'</div><div class="log-remarks">'+esc(l.remark||l.remarks||'')+'</div></div></div>';
+    }).join(''));
+    set('historyBox', logs.map(function(l){return '<div class="history-item"><b>'+esc(l.oldStage||'')+' → '+esc(l.newStage||l.stage||'')+'</b><br><small>'+esc(l.user||l.updatedBy||'')+' · '+esc(l.createdAt||'')+'</small></div>';}).join(''));
+  }
+
+  window.refreshDashboardCardsP6_3 = function(){
+    google.script.run.withSuccessHandler(function(res){
+      var rows = (res && (res.rows || res.data || res.complaints)) || [];
+      var total = rows.length;
+      var closed = rows.filter(function(r){return /closed/i.test(String(r.status||r.currentStage||''));}).length;
+      var open = total - closed;
+      var overdue = rows.filter(function(r){return Number(r.ageDays||r.age||0)>30 && !/closed/i.test(String(r.status||r.currentStage||''));}).length;
+      text('cmsTotal',total); text('cmsOpen',open); text('cmsClosed',closed); text('cmsOverdue',overdue);
+    }).getCmsTrackingData('ALL','ALL');
+  };
+  setTimeout(window.refreshDashboardCardsP6_3, 1200);
+})();
+</script>

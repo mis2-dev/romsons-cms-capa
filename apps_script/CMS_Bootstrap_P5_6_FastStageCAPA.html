@@ -1,0 +1,868 @@
+<!-- P5.2 Full stable bootstrap: core app + More Info UX final + alerts. -->
+<style>
+.p53-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#effcf8,#f8fffd);border:1px solid #cce7e1;border-radius:16px;padding:13px 14px;margin-bottom:12px}.p53-hero h6{font-size:17px;margin:2px 0 4px;color:#075e57;font-weight:900}.p53-stage-chip{background:#0f766e;color:#fff;border-radius:999px;padding:8px 11px;font-weight:900;font-size:12px;white-space:nowrap}.p53-checklist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 14px}.p53-check{background:#fff;border:1px solid #dceceb;border-radius:12px;padding:8px 9px;font-size:12px;font-weight:800;color:#64748b}.p53-check span{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;margin-right:6px;background:#e2e8f0;color:#64748b}.p53-check.done{color:#166534;background:#f0fdf4;border-color:#bbf7d0}.p53-check.done span{background:#16a34a;color:#fff}.p53-read-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.p53-read-grid div{background:#f8fafc;border:1px solid #e2e8f0;border-radius:11px;padding:8px}.p53-read-grid p{margin:3px 0 0}.capa-history{border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;background:#fff}.capa-history-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid #e2e8f0}.capa-history-row:last-child{border-bottom:0}.p53-upload-box{border:1px dashed #9dd8cf;background:#f8fffd;border-radius:14px;padding:12px}@media(max-width:768px){.p53-checklist{grid-template-columns:1fr}.p53-read-grid{grid-template-columns:1fr}.p53-hero{flex-direction:column}.capa-history-row{grid-template-columns:1fr}}
+</style>
+
+<script>
+(function(){
+  'use strict';
+  var loginBusy = false;
+  window.CMS_ROWS = window.CMS_ROWS || [];
+  window.CURRENT_FY_KEY = window.CURRENT_FY_KEY || 'ALL';
+
+  function byId(id){ return document.getElementById(id); }
+  function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];}); }
+  function getVal(id){ var el = byId(id); return el && typeof el.value === 'string' ? el.value.trim() : ''; }
+  function setText(id, value){ var el = byId(id); if (el) el.innerText = value; }
+
+  window.showLoader = function(v){ var el = byId('loader'); if (el) el.style.display = v ? 'flex' : 'none'; };
+
+  function popup(title, message, onOk){
+    var old = byId('cmsBootPopup'); if (old) old.remove();
+    var wrap = document.createElement('div');
+    wrap.id = 'cmsBootPopup';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.35);display:flex;align-items:center;justify-content:center;padding:18px;';
+    wrap.innerHTML = '<div style="width:min(440px,96vw);background:#fff;border-radius:18px;box-shadow:0 22px 55px rgba(0,0,0,.22);border:1px solid #d9e8e5;overflow:hidden">'
+      + '<div style="padding:16px 18px;background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;font-weight:900;font-size:17px">'+esc(title||'CMS')+'</div>'
+      + '<div style="padding:18px;color:#17343a;white-space:pre-wrap;font-size:14px;line-height:1.5">'+esc(message||'')+'</div>'
+      + '<div style="padding:12px 18px;text-align:right;background:#f8fafc"><button id="cmsBootOk" type="button" style="border:0;border-radius:10px;padding:9px 18px;background:#0f766e;color:#fff;font-weight:800;cursor:pointer">OK</button></div>'
+      + '</div>';
+    document.body.appendChild(wrap);
+    byId('cmsBootOk').onclick = function(){ wrap.remove(); if (typeof onOk === 'function') onOk(); };
+  }
+  window.showError = function(msg){ popup('❌ CMS Error', msg || 'Something went wrong'); };
+  window.showInfo = function(title,msg){ popup(title || 'CMS', msg || ''); };
+  window.showModal = function(title, body){ popup(title || 'CMS', body || ''); };
+  window.showSuccess = function(title, msg, complaintNo){ popup(title || '✅ Success', (msg || '') + (complaintNo ? ('\n\nComplaint No: '+complaintNo) : '')); };
+
+  window.showPage = function(pageId){
+    document.querySelectorAll('.app-page').forEach(function(p){ p.classList.remove('active'); });
+    var page = byId(pageId); if (page) page.classList.add('active');
+    var app = byId('app'); if (app && pageId === 'formPage') app.style.display = 'block';
+    if (pageId === 'listPage') window.loadCmsTrackingV2();
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
+  window.hideAllPages = function(){ document.querySelectorAll('.app-page').forEach(function(p){ p.classList.remove('active'); }); };
+
+  function renderCards(cards){ cards = cards || {}; setText('cmsTotal', cards.total || 0); setText('cmsOpen', cards.open || 0); setText('cmsClosed', cards.closed || 0); setText('cmsOverdue', cards.overdue || 0); }
+  function statusClass(s){ s = String(s||'').toLowerCase(); if (s.indexOf('closed') >= 0) return 'closed-status'; if (s.indexOf('reject') >= 0 || s.indexOf('reopen') >= 0) return 'rejected-status'; if (s.indexOf('booked') >= 0 || s.indexOf('pending') >= 0) return 'pending-status'; return 'active-status'; }
+  function renderRows(rows){
+    var tb = byId('complaintTable'); if (!tb) return;
+    rows = rows || [];
+    if (!rows.length){ tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No complaints found for selected FY</td></tr>'; return; }
+    tb.innerHTML = rows.map(function(c){
+      var cn = String(c.complaintNo || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return '<tr>'
+        + '<td><b>'+esc(c.complaintNo)+'</b><br><small>'+esc(c.date||'')+'</small></td>'
+        + '<td>'+esc(c.customer||'—')+'<br><small>'+esc(c.city||'')+'</small></td>'
+        + '<td>'+esc(c.product||'—')+'<br><small>Batch: '+esc(c.batch||'—')+'</small></td>'
+        + '<td>'+esc(c.severity||'—')+'</td>'
+        + '<td><span class="status-badge '+statusClass(c.status)+'">'+esc(c.status||'Complaint Booked')+'</span></td>'
+        + '<td>'+esc(c.ageDays||0)+' days</td>'
+        + '<td><button class="btn-soft" onclick="openCmsDetail(\''+cn+'\')">Track / View</button></td>'
+        + '</tr>';
+    }).join('');
+  }
+  function miniBars(id, items){
+    var box = byId(id); if (!box) return;
+    items = items || [];
+    if (!items.length){ box.innerHTML = '<div class="text-muted small">No data</div>'; return; }
+    box.innerHTML = items.map(function(x){ return '<div class="d-flex justify-content-between align-items-center py-1 border-bottom"><span>'+esc(x.label)+'</span><b>'+esc(x.count || 0)+'</b></div>'; }).join('');
+  }
+  function normalizeAnalytics(res){
+    var a = (res && res.analytics) || {};
+    var stageItems = a.byStage || [];
+    var sevItems = a.bySeverity || [];
+    if ((!stageItems.length) && res && res.stageCounts) stageItems = Object.keys(res.stageCounts).map(function(k){return {label:k,count:res.stageCounts[k]};});
+    if ((!sevItems.length) && res && res.severityCounts) sevItems = Object.keys(res.severityCounts).map(function(k){return {label:k,count:res.severityCounts[k]};});
+    miniBars('stageAnalytics', stageItems);
+    miniBars('severityAnalytics', sevItems);
+  }
+  function populateFy(res){
+    var opts = [{key:'ALL', label:'All FY'}].concat((res && res.fyOptions) || []);
+    var current = (res && res.selectedFY) || window.CURRENT_FY_KEY || 'ALL';
+    if (current !== 'ALL' && !opts.some(function(o){return o.key === current;})) opts.push({key:current,label:'FY '+current});
+    ['fyFilter','listFyFilter'].forEach(function(id){
+      var el = byId(id); if (!el) return;
+      var prev = el.value || current || 'ALL';
+      el.innerHTML = opts.map(function(o){ return '<option value="'+esc(o.key)+'">'+esc(o.label || o.key)+'</option>'; }).join('');
+      el.value = opts.some(function(o){return o.key === prev;}) ? prev : (current || 'ALL');
+    });
+  }
+
+  window.loadCmsTrackingV2 = function(done){
+    window.showLoader(true);
+    var fy = (byId('fyFilter') && byId('fyFilter').value) || (byId('listFyFilter') && byId('listFyFilter').value) || window.CURRENT_FY_KEY || 'ALL';
+    google.script.run
+      .withSuccessHandler(function(res){
+        window.showLoader(false);
+        if (!res || res.status !== 'success') { window.showError((res && res.message) || 'Tracking data load failed'); return; }
+        window.CURRENT_FY_KEY = res.selectedFY || fy || 'ALL';
+        window.CMS_ROWS = res.rows || [];
+        populateFy(res); renderCards(res.cards || {}); renderRows(window.CMS_ROWS); normalizeAnalytics(res);
+        if (typeof done === 'function') done();
+      })
+      .withFailureHandler(function(err){ window.showLoader(false); window.showError((err && err.message) || 'Complaint list load failed'); })
+      .getCmsTrackingData(fy);
+  };
+  window.changeFinancialYear = function(value){
+    var val = value || (byId('fyFilter') && byId('fyFilter').value) || (byId('listFyFilter') && byId('listFyFilter').value) || 'ALL';
+    window.CURRENT_FY_KEY = val;
+    if (byId('fyFilter')) byId('fyFilter').value = val;
+    if (byId('listFyFilter')) byId('listFyFilter').value = val;
+    window.loadCmsTrackingV2();
+  };
+  window.filterCmsRows = function(){
+    var q = (getVal('searchBox') || '').toLowerCase(); var st = getVal('statusFilter');
+    renderRows((window.CMS_ROWS || []).filter(function(c){ var okQ = !q || JSON.stringify(c).toLowerCase().indexOf(q) >= 0; var okS = !st || c.status === st; return okQ && okS; }));
+  };
+
+  function publicTrackingUrl(complaintNo){ return window.location.href.split('?')[0] + '?track=' + encodeURIComponent(complaintNo || ''); }
+
+  function safeLink(label, url){ return url ? '<a class="btn-soft me-2" target="_blank" href="'+esc(url)+'">'+esc(label)+'</a>' : ''; }
+
+  function stageAccent(status){
+    var s = String(status || '').toLowerCase();
+    if (s.indexOf('closed') >= 0) return 'closed';
+    if (s.indexOf('capa') >= 0) return 'capa';
+    if (s.indexOf('investigation') >= 0) return 'investigation';
+    if (s.indexOf('info') >= 0) return 'info';
+    if (s.indexOf('review') >= 0) return 'review';
+    return 'booked';
+  }
+
+  window.openCmsDetail = function(complaintNo){
+    var rows = window.CMS_ROWS || [];
+    var c = rows.find(function(x){ return String(x.complaintNo) === String(complaintNo); });
+    if (!c) { popup('Complaint Detail', 'Complaint not found in loaded list. Refresh list once and try again.'); return; }
+    window.CURRENT_COMPLAINT = c;
+    if (byId('detailTitle')) byId('detailTitle').innerText = c.complaintNo || '';
+    var detail = byId('detailBody');
+    if (detail) {
+      var accent = stageAccent(c.status);
+      detail.innerHTML = '<div class="cms-detail-hero '+accent+'">'
+        + '<div class="cms-detail-main">'
+        + '<div class="detail-kicker">Complaint / CAPA Case</div>'
+        + '<h4>'+esc(c.complaintNo || '—')+'</h4>'
+        + '<div class="detail-hero-grid">'
+        + '<div><span>Customer</span><b>'+esc(c.customer || '—')+'</b></div>'
+        + '<div><span>Product</span><b>'+esc(c.product || '—')+'</b></div>'
+        + '<div><span>Batch</span><b>'+esc(c.batch || '—')+'</b></div>'
+        + '<div><span>Severity</span><b>'+esc(c.severity || '—')+'</b></div>'
+        + '</div>'
+        + '</div>'
+        + '<div class="cms-detail-status">'
+        + '<div class="stage-pill big">'+esc(c.status || 'Complaint Booked')+'</div>'
+        + '<div class="small mt-2">Owner: <b>'+esc(c.stageOwner || '—')+'</b></div>'
+        + '<div class="small">CAPA: <b>'+esc(c.capaSubStatus || 'Not started')+'</b>'+ (c.capaVersion ? ' · V'+esc(c.capaVersion) : '') +'</div>'
+        + '</div>'
+        + '</div>'
+        + '<div class="quick-link-row">'
+        + safeLink('Open PDF', c.pdfUrl)
+        + safeLink('Open Folder', c.folderUrl)
+        + '<a class="btn-soft me-2" target="_blank" href="'+esc(publicTrackingUrl(c.complaintNo))+'">Public Tracking</a>'
+        + '<button class="btn-soft" type="button" onclick="copyPublicTrackingLink()">Copy Tracking Link</button>'
+        + '</div>';
+    }
+    ['historyBox','stageProgress','trackingLogList','lifecycleActions','infoRequestContent','p4WorkspaceContent','requestMiniTimeline','workspaceChatPanel'].forEach(function(id){ var el=byId(id); if(el) el.innerHTML='<div class="text-muted small py-2">Loading...</div>'; });
+    if (byId('trackingSubTitle')) byId('trackingSubTitle').innerText = 'Complaint No: ' + (c.complaintNo || '—');
+    if (byId('lifecycleRemark')) byId('lifecycleRemark').value = '';
+    openDetailModal();
+    loadDetailSections(c.complaintNo);
+  };
+
+  window.copyPublicTrackingLink = function(){
+    var c = window.CURRENT_COMPLAINT; if(!c) return;
+    var link = publicTrackingUrl(c.complaintNo);
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(function(){ popup('Copied', 'Public tracking link copied.'); }); }
+    else popup('Public Tracking Link', link);
+  };
+
+  function openDetailModal(){
+    // P5.4: detail view is now a full-screen workspace page instead of a crowded modal.
+    if (byId('workspacePage')) { window.showPage('workspacePage'); return; }
+    var modalEl = byId('cmsDetailModal');
+    if (!modalEl) { popup('Complaint Detail','Workspace HTML not found.'); return; }
+    try { new bootstrap.Modal(modalEl).show(); }
+    catch(e){ modalEl.style.display='block'; modalEl.classList.add('show'); }
+  }
+
+  function loadDetailSections(complaintNo){
+    loadActionAlerts(complaintNo);
+    loadLifecycleActions(complaintNo);
+    loadComplaintTrackingUi(complaintNo);
+    loadCmsHistory(complaintNo);
+    loadInfoRequestModule(complaintNo);
+    loadP4Workspace(complaintNo);
+  }
+
+  window.loadCmsHistory = function(complaintNo){
+    google.script.run.withSuccessHandler(function(rows){
+      var box=byId('historyBox'); if(!box) return;
+      rows = rows || [];
+      box.innerHTML = rows.length ? rows.map(function(h){return '<div class="history-item"><b>'+esc(h.oldStatus||'—')+' → '+esc(h.newStatus||'—')+'</b><div>'+esc(h.remark||'')+'</div><small>'+esc(h.user||'System')+' • '+esc(h.time||'')+'</small></div>';}).join('') : '<div class="text-muted">No history found</div>';
+    }).withFailureHandler(function(err){ var box=byId('historyBox'); if(box) box.innerHTML='<div class="text-danger">'+esc((err&&err.message)||'History load failed')+'</div>'; }).getCmsComplaintHistory(complaintNo);
+  };
+
+  window.loadComplaintTrackingUi = function(complaintNo){
+    google.script.run.withSuccessHandler(function(res){
+      var stageBox=byId('stageProgress'), logBox=byId('trackingLogList'); if(!stageBox||!logBox) return;
+      if(!res || res.status!=='success'){ stageBox.innerHTML='<div class="text-danger small">Tracking data not available</div>'; return; }
+      stageBox.innerHTML=(res.stages||[]).map(function(s){ var cls=String(s.status||'Pending').toLowerCase(); var icon=s.status==='Done'?'✓':(s.status==='Active'?'•':''); return '<div class="stage-box '+cls+'"><div class="stage-circle">'+icon+'</div><div class="stage-name">'+esc(s.stage)+'</div></div>'; }).join('');
+      var logs=res.logs||[];
+      logBox.innerHTML=logs.length?logs.map(function(l){ return '<div class="log-row"><div><div class="log-date">'+esc((l.time||'').split(' ')[0]||'—')+'</div><div class="log-time">'+esc((l.time||'').split(' ').slice(1).join(' '))+'</div></div><div class="log-dot">✓</div><div><div class="log-stage">'+esc(l.newStatus||l.stage||'—')+'</div><div class="log-remarks">'+esc(l.remark||'')+'</div><div class="log-remarks">Updated by: '+esc(l.user||'System')+'</div></div></div>'; }).join(''):'<div class="text-muted small py-2">No routing steps found.</div>';
+    }).withFailureHandler(function(err){ var box=byId('stageProgress'); if(box) box.innerHTML='<div class="text-danger">'+esc((err&&err.message)||'Tracking load failed')+'</div>'; }).getCmsComplaintTracking(complaintNo);
+  };
+
+
+  window.loadActionAlerts = function(complaintNo){
+    var panel = byId('actionAlertPanel');
+    var list = byId('actionAlertList');
+    var noteBox = byId('notificationFeed');
+    if(panel) panel.classList.add('d-none');
+    if(list) list.innerHTML = '<div class="text-muted small">Checking alerts...</div>';
+    google.script.run.withSuccessHandler(function(res){
+      if(!res || res.status !== 'success') return;
+      var alerts = res.alerts || [];
+      var notes = res.notifications || [];
+      if(panel) panel.classList.remove('d-none');
+      if(list){
+        if(!alerts.length) list.innerHTML = '<div class="action-alert ok"><b>No immediate action alert.</b><span>Current workflow is clear for your role.</span></div>';
+        else list.innerHTML = alerts.map(function(a){return '<div class="action-alert '+esc(a.level||'info')+'"><b>'+esc(a.title||'Alert')+'</b><span>'+esc(a.message||'')+'</span>'+(a.requestId?'<em>Request: '+esc(a.requestId)+'</em>':'')+'</div>';}).join('');
+      }
+      if(noteBox){
+        noteBox.innerHTML = notes.length ? notes.map(function(n){return '<div class="notification-row"><b>'+esc(n.title||n.type||'Notification')+'</b><span>'+esc(n.message||'')+'</span><small>'+esc(n.createdBy||'System')+' • '+esc(n.time||'')+'</small></div>';}).join('') : '<div class="text-muted small">No recent request notifications.</div>';
+      }
+    }).withFailureHandler(function(err){ if(list) list.innerHTML='<div class="action-alert danger"><b>Alert load failed</b><span>'+esc((err&&err.message)||'Unable to load alerts')+'</span></div>'; }).getCmsComplaintAlerts(complaintNo);
+  };
+
+  window.loadLifecycleActions = function(complaintNo){
+    google.script.run.withSuccessHandler(function(res){
+      if(!res || res.status!=='success') return;
+      setText('lifecycleCurrentStage', res.currentStage || '—'); setText('lifecycleStageOwner', res.stageOwner || '—'); setText('lifecycleCapaStatus', res.capaSubStatus ? (res.capaSubStatus + (res.capaVersion ? ' · V'+res.capaVersion : '')) : 'Not started');
+      var box=byId('lifecycleActions'); if(!box) return;
+      var actions=res.actions||[];
+      if(!actions.length){ box.innerHTML='<div class="lifecycle-empty">No action is pending for your role at this stage.</div>'; return; }
+      box.innerHTML=actions.map(function(a){ var cls=a.code==='REOPEN_CASE'?'admin':(a.code==='REQUEST_CAPA_REVISION'?'warning':''); return '<button class="lifecycle-action '+cls+'" onclick="runLifecycleAction(\''+esc(a.code)+'\','+(a.remarkRequired?'true':'false')+')">'+esc(a.label)+'</button>'; }).join('');
+    }).withFailureHandler(function(err){ var box=byId('lifecycleActions'); if(box) box.innerHTML='<div class="lifecycle-empty text-danger">'+esc((err&&err.message)||'Action load failed')+'</div>'; }).getAllowedCmsLifecycleActions(complaintNo);
+  };
+
+  window.runLifecycleAction = function(actionCode, remarkRequired){
+    var c=window.CURRENT_COMPLAINT; if(!c) return;
+    var remark=getVal('lifecycleRemark'); if(remarkRequired && !remark){ popup('Remark Required','Please enter action remark first.'); return; }
+    if(!confirm('Confirm this action?')) return;
+    window.showLoader(true);
+    google.script.run.withSuccessHandler(function(res){ window.showLoader(false); popup('Updated', (res&&res.message)||'Action completed', function(){ window.loadCmsTrackingV2(function(){ loadDetailSections(c.complaintNo); }); }); }).withFailureHandler(function(err){ window.showLoader(false); popup('Action Failed',(err&&err.message)||'Lifecycle action failed'); }).executeCmsLifecycleAction(c.complaintNo, actionCode, remark);
+  };
+
+  window.loadInfoRequestModule = function(complaintNo){
+    google.script.run.withSuccessHandler(function(res){
+      var box=byId('infoRequestContent'); if(!box) return;
+      setText('infoRequestCounter', ((res&&res.requestCount)||0)+' / '+((res&&res.maxRequests)||3)+' Requests');
+      if(!res || res.status!=='success'){ box.innerHTML='<div class="info-empty">Info request module not available.</div>'; return; }
+      var reqs=res.requests||[];
+      var p=res.permissions||{};
+      renderRequestMiniTimeline(reqs, res.maxRequests || 3);
+      renderWorkspaceChatPanel(reqs, res.activeRequest);
+      var html='';
+      html += renderInfoSummary(res);
+      if(p.canRaise){ html += renderRaiseRequestForm(res); }
+      else { html += renderInfoHelp(res); }
+      if(!reqs.length){ html += '<div class="info-empty">No information request raised yet. QA can raise a request during review stage.</div>'; }
+      else { html += '<div class="request-timeline">' + reqs.map(function(r){ return renderInfoRequestCard(r,p); }).join('') + '</div>'; }
+      box.innerHTML=html;
+    }).withFailureHandler(function(err){ var box=byId('infoRequestContent'); if(box) box.innerHTML='<div class="text-danger">'+esc((err&&err.message)||'Info request load failed')+'</div>'; }).getCmsInfoRequestModule(complaintNo);
+  };
+
+  function renderInfoSummary(res){
+    var active = res.activeRequest;
+    var badge = active ? ('Active: '+active.status+' · '+active.requestId) : 'No active request';
+    var cls = active ? (active.status==='Sales Responded'?'review':'active') : 'clear';
+    var text = active ? (active.status==='Sales Responded' ? 'Sales has submitted a response. QA review is pending.' : 'Sales response is pending. Investigation is blocked until closure.') : 'Request channel is clear. QA may raise a request or continue workflow as allowed.';
+    return '<div class="info-flow-summary '+cls+'"><div><b>'+esc(badge)+'</b><span>'+esc(text)+'</span></div><div class="info-progress"><b>'+esc(res.remainingRequests||0)+'</b><small>cycles left</small></div></div>';
+  }
+
+  function renderRaiseRequestForm(res){
+    return '<div class="info-form polished">'
+      + '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2"><b>Raise New Information Request</b><span class="small text-muted">One active request allowed · max three cycles</span></div>'
+      + '<label>Request Template</label><select id="infoReqTemplate" class="form-select" onchange="applyInfoRequestTemplate()"><option value="">Select quick template</option><option value="sample">Sample availability / complaint sample confirmation</option><option value="photos">Photos or video evidence required</option><option value="lot">Lot / batch / invoice / dispatch details</option><option value="customer">Customer observation and usage condition</option></select>'
+      + '<label class="mt-2">Question / Required Information *</label><textarea id="newInfoQuestion" class="form-control" rows="3" placeholder="Write clearly what Sales must confirm or collect from customer/hospital."></textarea>'
+      + '<label class="mt-2">Attachment optional</label><input id="newInfoFile" type="file" class="form-control" accept=".pdf,.doc,.docx,image/*">'
+      + '<div class="info-actions"><button class="btn-primary-custom" onclick="raiseInfoRequestQuick()">Raise Request & Notify Sales</button></div>'
+      + '</div>';
+  }
+
+  function renderInfoHelp(res){
+    var active = res.activeRequest;
+    if(active) return '<div class="info-help">Active request must be completed before another request can be raised.</div>';
+    if((res.requestCount||0) >= (res.maxRequests||3)) return '<div class="info-help warn">Maximum 3 information request cycles used.</div>';
+    return '<div class="info-help">No request action is currently available for your role/stage.</div>';
+  }
+  function renderRequestMiniTimeline(reqs, maxReq){
+    var box = byId('requestMiniTimeline'); if(!box) return;
+    reqs = reqs || []; maxReq = maxReq || 3;
+    var byNo = {}; reqs.forEach(function(r){ byNo[Number(r.requestNo||0)] = r; });
+    var html = '';
+    for(var i=1;i<=maxReq;i++){
+      var r = byNo[i];
+      var status = r ? (r.status || 'Open') : 'Not Used';
+      var cls = r ? requestStatusClass(status) : 'not-used';
+      var icon = status === 'Closed' ? '✓' : (status === 'Sales Responded' ? '↩' : (r ? '!' : '•'));
+      html += '<div class="request-node '+cls+'"><div class="request-dot">'+esc(icon)+'</div><b>Request '+i+'</b><span>'+esc(status)+'</span>'+ (r && r.requestId ? '<span>'+esc(r.requestId)+'</span>' : '') +'</div>';
+    }
+    box.innerHTML = html;
+  }
+
+  function renderWorkspaceChatPanel(reqs, active){
+    var box = byId('workspaceChatPanel'); if(!box) return;
+    reqs = reqs || [];
+    var target = active ? reqs.find(function(r){ return r.requestId === active.requestId; }) : (reqs.length ? reqs[reqs.length-1] : null);
+    if(!target){ box.innerHTML = '<div class="chat-empty">No information request conversation yet.</div>'; return; }
+    var html = '<div class="mb-2"><b>'+esc(target.requestId)+'</b><div class="small text-muted">Status: '+esc(target.status||'')+'</div></div>';
+    var messages = target.messages || [];
+    if(!messages.length){
+      html += '<div class="chat-msg"><small>QA Request</small>'+esc(target.question||'')+'</div>';
+      if(target.salesResponse) html += '<div class="chat-msg sales"><small>Sales Response</small>'+esc(target.salesResponse||'')+'</div>';
+    } else {
+      html += messages.map(function(m){ var side=/sales/i.test(m.role||'')?'sales':''; return '<div class="chat-msg '+side+'"><small>'+esc(m.type||'Comment')+' · '+esc(m.sender||'System')+' · '+esc(m.time||'')+'</small>'+esc(m.message||'')+fileAnchor('Open Attachment',m.attachmentUrl)+'</div>'; }).join('');
+    }
+    box.innerHTML = html;
+  }
+
+  function requestStatusClass(status){ return String(status||'').toLowerCase().replace(/ /g,'-'); }
+  function fileAnchor(label,url){ return url ? '<a class="info-link" target="_blank" href="'+esc(url)+'">'+esc(label)+'</a>' : ''; }
+  function renderInfoRequestCard(r,p){
+    var active = r.status==='Closed' ? '' : 'active';
+    var html = '<div class="info-request-card '+active+'">'
+      + '<div class="info-request-top"><div><b>'+esc(r.requestId)+'</b><div class="small text-muted">Request '+esc(r.requestNo||'')+' · Raised by '+esc(r.raisedBy||'QA')+' '+esc(r.raisedAt?('· '+r.raisedAt):'')+'</div></div><span class="info-status '+requestStatusClass(r.status)+'">'+esc(r.status||'Open')+'</span></div>'
+      + '<div class="qa-sales-grid mt-2"><div><div class="mini-label">QA Requested</div><div>'+esc(r.question||'')+'</div>'+fileAnchor('Open QA Attachment',r.qaAttachmentUrl)+'</div>'
+      + '<div><div class="mini-label">Sales Response</div><div>'+(r.salesResponse?esc(r.salesResponse):'<span class="text-muted">Pending response</span>')+'</div>'+fileAnchor('Open Sales Attachment',r.salesAttachmentUrl)+'</div></div>';
+    html += renderInfoMessages(r.messages||[]);
+    html += renderInfoButtons(r,p);
+    html += '</div>';
+    return html;
+  }
+  function renderInfoMessages(messages){
+    if(!messages || !messages.length) return '';
+    return '<div class="info-thread">'+messages.map(function(m){
+      var side = /sales/i.test(m.role||'') ? 'sales' : 'qa';
+      return '<div class="info-msg '+side+'"><div><b>'+esc(m.type||'Comment')+'</b> <small>'+esc(m.sender||'System')+' • '+esc(m.time||'')+'</small></div><div>'+esc(m.message||'')+'</div>'+fileAnchor('Open Attachment',m.attachmentUrl)+'</div>';
+    }).join('')+'</div>';
+  }
+  function renderInfoButtons(r,p){
+    var safeId = String(r.requestId||'').replace(/[^A-Za-z0-9_\-]/g,'_');
+    var out='<div class="info-actions">';
+    if(p.canRespond && (r.status==='Open'||r.status==='Reopened')) out += '<div class="w-100 response-box"><label>Sales Response *</label><textarea id="salesResp_'+safeId+'" class="form-control" rows="2" placeholder="Write response for QA"></textarea><label class="mt-2">Attachment optional</label><input id="salesRespFile_'+safeId+'" type="file" class="form-control" accept=".pdf,.doc,.docx,image/*"></div><button class="btn-primary-custom" onclick="respondInfoQuick(\''+esc(r.requestId)+'\',\''+safeId+'\')">Submit Response & Notify QA</button>';
+    if(p.canReview && r.status==='Sales Responded') out += '<div class="w-100 response-box"><label>QA Review Comment</label><textarea id="qaRev_'+safeId+'" class="form-control" rows="2" placeholder="Accept response or mention reopen reason"></textarea></div><button class="btn-primary-custom" onclick="reviewInfoQuick(\''+esc(r.requestId)+'\',\'ACCEPT\',\''+safeId+'\')">Accept & Close Request</button><button class="btn-outline" onclick="reviewInfoQuick(\''+esc(r.requestId)+'\',\'REOPEN\',\''+safeId+'\')">Reopen for Sales</button>';
+    if(r.status !== 'Closed') out += '<button class="btn-soft" onclick="toggleInfoComment(\''+safeId+'\')">Add Comment</button><div id="commentBox_'+safeId+'" class="w-100 response-box d-none"><label>Comment</label><textarea id="infoComment_'+safeId+'" class="form-control" rows="2" placeholder="Add a note to this request thread"></textarea><label class="mt-2">Attachment optional</label><input id="infoCommentFile_'+safeId+'" type="file" class="form-control" accept=".pdf,.doc,.docx,image/*"><button class="btn-primary-custom mt-2" onclick="addInfoCommentQuick(\''+esc(r.requestId)+'\',\''+safeId+'\')">Save Comment</button></div>';
+    return out+'</div>';
+  }
+
+  window.applyInfoRequestTemplate=function(){
+    var t=getVal('infoReqTemplate'), el=byId('newInfoQuestion'); if(!el||!t)return;
+    var map={sample:'Please confirm whether the complaint sample is available. If yes, share sample status, sample quantity, and expected dispatch/pickup details.',photos:'Please collect and share clear photos/videos of the reported issue, product label, packing condition, and any visible defect.',lot:'Please confirm lot/batch details, invoice/dispatch reference, quantity supplied, quantity affected, and customer stock position.',customer:'Please confirm customer observation, usage condition, hospital/user feedback, and whether the issue repeated in multiple units.'};
+    el.value=map[t]||'';
+  };
+  window.toggleInfoComment=function(safeId){ var el=byId('commentBox_'+safeId); if(el) el.classList.toggle('d-none'); };
+  window.raiseInfoRequestQuick=function(){ var c=window.CURRENT_COMPLAINT; if(!c)return; var q=getVal('newInfoQuestion'); if(!q)return popup('Required','Write request details.'); if(!confirm('Raise this information request and notify Sales?')) return; window.showLoader(true); fileToDataUrl('newInfoFile').then(function(file){ google.script.run.withSuccessHandler(function(res){ window.showLoader(false); popup('Request Raised',(res&&res.message)||'Information request raised.',function(){ loadDetailSections(c.complaintNo); }); }).withFailureHandler(function(e){ window.showLoader(false); popup('Failed',(e&&e.message)||'Request failed'); }).raiseCmsInfoRequest(c.complaintNo,q,file); }); };
+  window.respondInfoQuick=function(id,safeId){ var c=window.CURRENT_COMPLAINT; var txt=getVal('salesResp_'+safeId); if(!txt)return popup('Required','Write response.'); if(!confirm('Submit response and mark this request complete for QA review?')) return; window.showLoader(true); fileToDataUrl('salesRespFile_'+safeId).then(function(file){ google.script.run.withSuccessHandler(function(res){ window.showLoader(false); popup('Response Submitted',(res&&res.message)||'Response submitted.',function(){ loadDetailSections(c.complaintNo); }); }).withFailureHandler(function(e){ window.showLoader(false); popup('Failed',(e&&e.message)||'Response failed'); }).respondCmsInfoRequest(id,txt,file); }); };
+  window.reviewInfoQuick=function(id,decision,safeId){ var c=window.CURRENT_COMPLAINT; var txt=getVal('qaRev_'+safeId); if(decision==='REOPEN'&&!txt)return popup('Required','Write reopen reason.'); if(!confirm(decision==='ACCEPT'?'Accept and close this request?':'Reopen this request for Sales?')) return; window.showLoader(true); google.script.run.withSuccessHandler(function(res){ window.showLoader(false); popup('QA Review Updated',(res&&res.message)||'Review saved.',function(){ loadDetailSections(c.complaintNo); }); }).withFailureHandler(function(e){ window.showLoader(false); popup('Failed',(e&&e.message)||'Review failed'); }).reviewCmsInfoRequest(id,decision,txt); };
+  window.addInfoCommentQuick=function(id,safeId){ var c=window.CURRENT_COMPLAINT; var txt=getVal('infoComment_'+safeId); if(!txt)return popup('Required','Write comment.'); window.showLoader(true); fileToDataUrl('infoCommentFile_'+safeId).then(function(file){ google.script.run.withSuccessHandler(function(res){ window.showLoader(false); popup('Comment Added',(res&&res.message)||'Comment added.',function(){ loadDetailSections(c.complaintNo); }); }).withFailureHandler(function(e){ window.showLoader(false); popup('Failed',(e&&e.message)||'Comment failed'); }).addCmsInfoRequestComment(id,txt,file); }); };
+
+  function renderChecklist(items){
+    if(!items || !items.length) return '';
+    return '<div class="p53-checklist">'+items.map(function(x){return '<div class="p53-check '+(x.done?'done':'pending')+'"><span>'+(x.done?'✓':'•')+'</span>'+esc(x.label||'')+'</div>';}).join('')+'</div>';
+  }
+  function capText(v, fallback){ return v ? esc(v) : '<span class="text-muted">'+esc(fallback||'—')+'</span>'; }
+  function renderCapaHistory(list){
+    if(!list || !list.length) return '<div class="info-empty">No CAPA version uploaded yet.</div>';
+    return '<div class="capa-history">'+list.map(function(c){
+      return '<div class="capa-history-row"><div><b>CAPA V'+esc(c.version||'')+'</b><div class="small text-muted">'+esc(c.status||'')+' · '+esc(c.uploadedBy||'—')+' '+(c.uploadedAt?'· '+esc(c.uploadedAt):'')+'</div>'+(c.revisionReason?'<div class="revision-note mt-1">Revision: '+esc(c.revisionReason)+'</div>':'')+'</div><div class="text-end">'+(c.documentUrl?'<a class="p4-file" target="_blank" href="'+esc(c.documentUrl)+'">Open</a>':'')+'</div></div>';
+    }).join('')+'</div>';
+  }
+  function validateP53Investigation(complete){
+    if(!complete) return '';
+    var missing=[];
+    if(!getVal('p4InvSummary')) missing.push('Investigation Summary');
+    if(!getVal('p4RootCause')) missing.push('Root Cause');
+    if(!getVal('p4Conclusion')) missing.push('Conclusion');
+    return missing.length ? 'Please fill: '+missing.join(', ') : '';
+  }
+  function validateP53Capa(){
+    var missing=[];
+    var file=byId('p4CapaFile');
+    if(!file || !file.files || !file.files[0]) missing.push('CAPA Document');
+    if(!getVal('p4Corrective')) missing.push('Corrective Action');
+    if(!getVal('p4Preventive')) missing.push('Preventive Action');
+    return missing.length ? 'Please fill: '+missing.join(', ') : '';
+  }
+
+  window.loadP4Workspace = function(complaintNo){
+    var box=byId('p4WorkspaceContent'); if(box) box.innerHTML='<div class="info-empty">Loading Investigation & CAPA workspace...</div>';
+    google.script.run.withSuccessHandler(function(res){
+      var box=byId('p4WorkspaceContent'); if(!box)return;
+      if(!res || res.status!=='success'){ box.innerHTML='<div class="info-empty">Investigation/CAPA workspace not available.</div>'; return; }
+      var inv=res.investigation||{}, capa=res.capa||{}, p=res.permissions||{};
+      var stage=res.currentStage||'', capastat=res.capaSubStatus||'Not started';
+      var html='<div class="p53-hero"><div><div class="small text-muted">Investigation & CAPA Control</div><h6>'+esc(stage)+'</h6><div class="small">Owner: '+esc(res.stageOwner||'—')+' · CAPA: <b>'+esc(capastat)+(res.capaVersion?' · V'+esc(res.capaVersion):'')+'</b></div></div><div class="p53-stage-chip">'+esc(capastat)+'</div></div>';
+      html += renderChecklist(res.checklist||[]);
+      html += '<div class="workspace-section"><div class="section-mini-title">Investigation Workspace</div>';
+      if(p.canInvestigationEdit){
+        html+='<div class="p4-grid">'
+          + '<div class="full"><label>Investigation Summary *</label><textarea id="p4InvSummary" class="form-control" rows="3" placeholder="What was checked, what was observed, and what evidence was reviewed?">'+esc(inv.summary||'')+'</textarea><div class="small text-muted mt-1">Mandatory before completing investigation.</div></div>'
+          + '<div><label>Root Cause *</label><textarea id="p4RootCause" class="form-control" rows="3" placeholder="Root cause / probable cause identified">'+esc(inv.rootCause||'')+'</textarea></div>'
+          + '<div><label>Batch Findings</label><textarea id="p4BatchFindings" class="form-control" rows="3" placeholder="Batch / lot verification, production or QC reference details">'+esc(inv.batchFindings||'')+'</textarea></div>'
+          + '<div><label>Sample / Testing Details</label><textarea id="p4Testing" class="form-control" rows="3" placeholder="Sample received, testing performed, observation or test result">'+esc(inv.testingDetails||'')+'</textarea></div>'
+          + '<div><label>Conclusion *</label><textarea id="p4Conclusion" class="form-control" rows="3" placeholder="Final conclusion to close investigation stage">'+esc(inv.conclusion||'')+'</textarea></div>'
+          + '<div class="full"><label>Supporting Attachment</label><input id="p4InvFile" type="file" class="form-control" accept=".pdf,.doc,.docx,image/*">'+fileAnchor('Open Existing Evidence', inv.attachmentUrl)+'</div>'
+          + '</div><div class="p4-actions"><button class="btn-soft" onclick="saveP4Investigation(false)">Save Draft</button><button class="btn-primary-custom" onclick="saveP4Investigation(true)">Complete Investigation</button></div>';
+      } else if(inv.summary){
+        html+='<div class="p4-readonly"><div class="p53-read-grid"><div><b>Status</b><p>'+capText(inv.status)+'</p></div><div><b>Last Saved</b><p>'+capText(inv.lastSavedAt)+'</p></div><div><b>Completed</b><p>'+capText(inv.completedAt,'Not completed')+'</p></div></div><hr><div><b>Summary:</b><br>'+capText(inv.summary)+'</div><div class="mt-2"><b>Root Cause:</b><br>'+capText(inv.rootCause)+'</div><div class="mt-2"><b>Batch Findings:</b><br>'+capText(inv.batchFindings)+'</div><div class="mt-2"><b>Testing Details:</b><br>'+capText(inv.testingDetails)+'</div><div class="mt-2"><b>Conclusion:</b><br>'+capText(inv.conclusion)+'</div>'+fileAnchor('Open Investigation Evidence', inv.attachmentUrl)+'</div>';
+      } else html+='<div class="info-empty">Investigation workspace will activate after QA starts investigation.</div>';
+      html+='</div><div class="workspace-section mt-3"><div class="section-mini-title">CAPA Document Management</div>';
+      if(capa.documentUrl) html+='<div class="capa-version-card"><div><b>Latest CAPA V'+esc(capa.version||'')+'</b><div class="small text-muted">Status: '+esc(capa.status||res.capaSubStatus||'')+' · Uploaded by '+esc(capa.uploadedBy||'—')+' '+(capa.uploadedAt?'· '+esc(capa.uploadedAt):'')+'</div><div class="small mt-1"><b>Corrective:</b> '+capText(capa.correctiveAction)+'</div><div class="small"><b>Preventive:</b> '+capText(capa.preventiveAction)+'</div></div><a class="p4-file" target="_blank" href="'+esc(capa.documentUrl)+'">Open Latest CAPA</a>'+(capa.revisionReason?'<div class="revision-note">Revision Reason: '+esc(capa.revisionReason)+'</div>':'')+'</div>';
+      html += '<div class="section-mini-title mt-3">CAPA Version History</div>'+renderCapaHistory(res.capaHistory||[]);
+      if(p.canUploadCapa) html+='<div class="p53-upload-box mt-3"><div class="section-mini-title">'+(res.capaSubStatus==='Revision Requested'?'Upload Revised CAPA':'Upload CAPA')+'</div><div class="p4-grid"><div class="full"><label>CAPA Document *</label><input id="p4CapaFile" type="file" class="form-control" accept=".pdf,.doc,.docx"></div><div><label>Corrective Action *</label><textarea id="p4Corrective" class="form-control" rows="3" placeholder="Corrective action taken"></textarea></div><div><label>Preventive Action *</label><textarea id="p4Preventive" class="form-control" rows="3" placeholder="Preventive action planned"></textarea></div><div class="full"><label>QA Remark</label><textarea id="p4QaRemark" class="form-control" rows="2" placeholder="CAPA upload remark"></textarea></div></div><div class="p4-actions"><button class="btn-primary-custom" onclick="uploadP4Capa()">'+(res.capaSubStatus==='Revision Requested'?'Upload Revised CAPA':'Upload CAPA')+'</button></div></div>';
+      if(p.canVerifyCapa||p.canRequestRevision) html+='<div class="sales-review-box"><div class="section-mini-title">Sales CAPA Review</div><label>Sales Review / Remark *</label><textarea id="p4SalesRemark" class="form-control" rows="3" placeholder="Confirm CAPA reviewed, or mention revision reason"></textarea><div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="p4SalesConfirm"><label class="form-check-label" for="p4SalesConfirm">I have reviewed the latest CAPA document.</label></div><div class="p4-actions">'+(p.canVerifyCapa?'<button class="btn-primary-custom" onclick="verifyP4Capa()">Verify CAPA & Close Case</button>':'')+(p.canRequestRevision?'<button class="lifecycle-action warning" onclick="reviseP4Capa()">Request CAPA Revision</button>':'')+'</div></div>';
+      html+='</div>';
+      box.innerHTML=html;
+    }).withFailureHandler(function(err){ var box=byId('p4WorkspaceContent'); if(box) box.innerHTML='<div class="text-danger">'+esc((err&&err.message)||'Workspace load failed')+'</div>'; }).getCmsInvestigationCapaWorkspace(complaintNo);
+  };
+
+  function fileToDataUrl(id){ return new Promise(function(resolve){ var el=byId(id), f=el&&el.files&&el.files[0]; if(!f)return resolve(''); var r=new FileReader(); r.onload=function(e){resolve(e.target.result)}; r.onerror=function(){resolve('')}; r.readAsDataURL(f); }); }
+  window.saveP4Investigation=function(complete){ var c=window.CURRENT_COMPLAINT; if(!c)return; var msg=validateP53Investigation(!!complete); if(msg)return popup('Required',msg); if(complete && !confirm('Complete investigation and move this complaint to Investigation Complete?')) return; var payload={summary:getVal('p4InvSummary'),rootCause:getVal('p4RootCause'),batchFindings:getVal('p4BatchFindings'),testingDetails:getVal('p4Testing'),conclusion:getVal('p4Conclusion'),attachmentDataUrl:''}; window.showLoader(true); fileToDataUrl('p4InvFile').then(function(file){ payload.attachmentDataUrl=file; google.script.run.withSuccessHandler(function(res){ window.showLoader(false); popup('Investigation Updated',(res&&res.message)||'Saved',function(){window.loadCmsTrackingV2(function(){loadDetailSections(c.complaintNo);});}); }).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'Save failed');}).saveCmsInvestigation(c.complaintNo,payload,!!complete); }); };
+  window.uploadP4Capa=function(){ var c=window.CURRENT_COMPLAINT; if(!c)return; var msg=validateP53Capa(); if(msg)return popup('Required',msg); if(!confirm('Upload this CAPA document for Sales verification?')) return; fileToDataUrl('p4CapaFile').then(function(data){ var payload={documentDataUrl:data,correctiveAction:getVal('p4Corrective'),preventiveAction:getVal('p4Preventive'),qaRemark:getVal('p4QaRemark')}; window.showLoader(true); google.script.run.withSuccessHandler(function(res){window.showLoader(false);popup('CAPA Uploaded',(res&&res.message)||'CAPA uploaded',function(){window.loadCmsTrackingV2(function(){loadDetailSections(c.complaintNo);});});}).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'CAPA upload failed');}).uploadCmsCapaDocument(c.complaintNo,payload); }); };
+  window.verifyP4Capa=function(){ var c=window.CURRENT_COMPLAINT, r=getVal('p4SalesRemark'); if(!r)return popup('Required','Verification remark required.'); var chk=byId('p4SalesConfirm'); if(chk && !chk.checked) return popup('Required','Please confirm that you have reviewed the latest CAPA document.'); if(!confirm('Verify CAPA and close this case?')) return; window.showLoader(true); google.script.run.withSuccessHandler(function(res){window.showLoader(false);popup('CAPA Verified',(res&&res.message)||'Verified',function(){window.loadCmsTrackingV2(function(){loadDetailSections(c.complaintNo);});});}).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'Verify failed');}).verifyCmsCapaDocument(c.complaintNo,r); };
+  window.reviseP4Capa=function(){ var c=window.CURRENT_COMPLAINT, r=getVal('p4SalesRemark'); if(!r)return popup('Required','Revision reason required.'); if(!confirm('Request CAPA revision from QA?')) return; window.showLoader(true); google.script.run.withSuccessHandler(function(res){window.showLoader(false);popup('Revision Requested',(res&&res.message)||'Revision requested',function(){window.loadCmsTrackingV2(function(){loadDetailSections(c.complaintNo);});});}).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'Revision failed');}).requestCmsCapaRevision(c.complaintNo,r); };
+
+  function enterDashboard(user){
+    var login = byId('loginBox'); if (login) login.style.display = 'none';
+    var app = byId('app'); if (app) app.style.display = 'block';
+    var comp = byId('complainerName'); if (comp) { comp.value = user.name || ''; comp.readOnly = true; }
+    var pill = byId('userPill'); if (pill) pill.innerText = (user.name || 'User') + ' • ' + (user.role || 'User');
+    try { sessionStorage.setItem('CMS_SESSION', JSON.stringify({email:user.email||'',name:user.name||'',role:user.role||'',savedAt:Date.now()})); } catch(e) {}
+    window.showPage('dashboardPage'); window.loadCmsTrackingV2();
+  }
+  window.cmsLoginNow = function(event){
+    if (event && event.preventDefault) event.preventDefault(); if (loginBusy) return;
+    var email = getVal('emailField'), pwd = getVal('passwordField');
+    if (!email || !pwd) { popup('Login Required','Please enter email and password.'); return; }
+    if (!window.google || !google.script || !google.script.run) { popup('Connection Error','Apps Script connection is not ready. Refresh once and try again.'); return; }
+    var btn = byId('cmsLoginBtn'); loginBusy = true; if (btn) { btn.disabled = true; btn.dataset.oldText = btn.innerText; btn.innerText = 'Signing in…'; }
+    window.showLoader(true);
+    google.script.run.withSuccessHandler(function(res){
+      loginBusy = false; window.showLoader(false); if (btn) { btn.disabled = false; btn.innerText = btn.dataset.oldText || 'Login to CMS'; }
+      if (res && res.status === 'success') popup('✅ Login Successful','Welcome '+(res.name || 'User')+'. Your dashboard is ready.', function(){ enterDashboard(res); });
+      else popup('❌ Login Failed', (res && res.message) || 'Invalid email or password.');
+    }).withFailureHandler(function(err){ loginBusy = false; window.showLoader(false); if (btn) { btn.disabled = false; btn.innerText = btn.dataset.oldText || 'Login to CMS'; } popup('❌ Login Error', (err && err.message) || 'Login request failed.'); }).authenticateCmsLoginV2(email, pwd);
+  };
+
+  function readMultiFiles(id){
+    return new Promise(function(resolve){ var el = byId(id), files = el && el.files ? Array.prototype.slice.call(el.files) : []; if (!files.length) return resolve([]); var out=[], done=0; files.forEach(function(f){ var r = new FileReader(); r.onload = function(e){ out.push(e.target.result); if (++done === files.length) resolve(out); }; r.onerror = function(){ if (++done === files.length) resolve(out); }; r.readAsDataURL(f); }); });
+  }
+  window.clearForm = function(){ var keep = {'complainerName':true}; document.querySelectorAll('#app input,#app textarea,#app select').forEach(function(e){ if(keep[e.id]) return; if(e.type==='checkbox') e.checked=false; else e.value=''; }); var item = byId('itemName'); if(item) item.innerHTML=''; var man=byId('itemNameManual'); if(man) man.classList.add('d-none'); };
+  window.refreshData = window.clearForm;
+  // Batch Fetch restored to old practical behavior: repeat fetch is allowed.
+  // This is intentional because some batch/item results resolve correctly on second fetch.
+  window.fetchBatch = function(){
+    var batch = getVal('batchNo').toUpperCase();
+    if(!batch) return;
+    var btn = document.querySelector('.fetch-btn');
+    if(btn){ btn.disabled=true; btn.dataset.oldText=btn.innerText; btn.innerText='Fetching...'; }
+    window.showLoader(true);
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        window.showLoader(false);
+        if(btn){ btn.disabled=false; btn.innerText=btn.dataset.oldText||'Fetch'; }
+
+        var list = (res && Array.isArray(res.itemNames)) ? res.itemNames : [];
+        var item = byId('itemName'), man = byId('itemNameManual');
+        if(!item || !man) return;
+
+        item.innerHTML = '';
+        item.classList.remove('d-none');
+        man.classList.add('d-none');
+
+        if(list.length > 0){
+          if(list.length > 1){
+            item.appendChild(new Option('Select Item Name',''));
+          }
+          list.forEach(function(name){ item.appendChild(new Option(name,name)); });
+          item.value = list.length === 1 ? list[0] : '';
+        } else {
+          item.classList.add('d-none');
+          man.classList.remove('d-none');
+          man.value = '';
+          man.focus();
+        }
+      })
+      .withFailureHandler(function(err){
+        window.showLoader(false);
+        if(btn){ btn.disabled=false; btn.innerText=btn.dataset.oldText||'Fetch'; }
+        window.showError((err && err.message) || 'Batch lookup failed');
+      })
+      .getBatchLookupData(batch);
+  };
+  window.fetchPincodeDetails = function(){
+    var pin = getVal('pincode').replace(/\D/g,''); if(!pin || !/^\d{6}$/.test(pin)) return;
+    google.script.run.withSuccessHandler(function(res){ if(res&&res.found){ if(!getVal('city')&&byId('city')) byId('city').value=res.city||''; if(!getVal('state')&&byId('state')) byId('state').value=res.state||''; } }).getPincodeDetails(pin);
+  };
+  window.submitComplaintUI = function(){
+    var itemEl=byId('itemName'), manual=byId('itemNameManual');
+    var issue=getVal('issuesDropdown'); if(!issue) return window.showError('Please select Issue Category');
+    var payload={timestamp:new Date().toISOString(),complaintDate:getVal('complaintDate'),batchNo:getVal('batchNo'),itemName:(itemEl&&itemEl.classList.contains('d-none'))?getVal('itemNameManual'):(itemEl?itemEl.value:''),complaintSeverity:getVal('complaintType'),issues:[issue],subcategories:getVal('subcategories'),customerType:getVal('customerType'),complaintMode:getVal('complaintMode'),location:getVal('location'),address:getVal('address'),city:getVal('city'),state:getVal('state'),pincode:getVal('pincode'),complaint:getVal('description'),qtyAffected:getVal('qtyAffected'),sampleAvailable:!!(byId('sampleAvailable')&&byId('sampleAvailable').checked),images:[],videos:[]};
+    var req=['complaintDate','batchNo','itemName','customerType','complaintMode','location','address','city','state','pincode','subcategories','complaint'];
+    for(var i=0;i<req.length;i++){ if(!payload[req[i]]) return window.showError('Please fill all required fields'); }
+    if(!/^\d{6}$/.test(payload.pincode)) return window.showError('Please enter valid 6-digit pincode');
+    window.showLoader(true);
+    readMultiFiles('imageFiles').then(function(img){ payload.images=img; return readMultiFiles('videoFiles'); }).then(function(vid){ payload.videos=vid; google.script.run.withSuccessHandler(function(res){ window.showLoader(false); if(res&&res.status==='success'){ window.showSuccess('✅ Complaint Submitted','Your complaint has been submitted successfully.',res.complaintNo); window.clearForm(); window.loadCmsTrackingV2(); } else window.showError((res&&res.message)||'Submission failed'); }).withFailureHandler(function(err){ window.showLoader(false); window.showError((err&&err.message)||'Server error during submission'); }).submitComplaint(payload); });
+  };
+  window.detailsPreview = function(){ popup('Preview', 'PDF preview will be available after final UI stabilization. You can submit complaint normally.'); };
+  window.printPreview = function(){};
+  window.fillAgain = window.clearForm;
+  window.logout = function(){ try{sessionStorage.removeItem('CMS_SESSION');}catch(e){} google.script.run.clearSession(); window.location.reload(); };
+
+  window.addEventListener('DOMContentLoaded', function(){
+    var btn = byId('cmsLoginBtn'); if (btn) btn.onclick = window.cmsLoginNow; var bEl = byId('batchNo'); if(bEl){ bEl.addEventListener('input', function(){ lastFetchedBatch=''; }); }
+    ['emailField','passwordField'].forEach(function(id){ var el = byId(id); if (el) el.addEventListener('keydown', function(e){ if (e.key === 'Enter') window.cmsLoginNow(e); }); });
+    if (byId('dashboardPage') && (!byId('loginBox') || byId('loginBox').style.display === 'none')) window.loadCmsTrackingV2();
+    try { var saved = JSON.parse(sessionStorage.getItem('CMS_SESSION') || 'null'); if (saved && saved.email && byId('loginBox') && byId('loginBox').style.display !== 'none') { window.showLoader(true); google.script.run.withSuccessHandler(function(res){ window.showLoader(false); if(res && res.status==='active') enterApp(res); }).withFailureHandler(function(){ window.showLoader(false); }).getSession(); } } catch(e){}
+  });
+})();
+</script>
+
+
+<style>
+/* ===== P5.5.3 Hospital Search Modal Fix ===== */
+.cms-hospital-modal{position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;padding:18px;}
+.cms-hospital-modal.show{display:flex;}
+.cms-hospital-card{width:min(920px,96vw);max-height:88vh;background:#fff;border-radius:20px;border:1px solid #d6e5e2;box-shadow:0 24px 70px rgba(0,0,0,.25);overflow:hidden;display:flex;flex-direction:column;}
+.cms-hospital-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;}
+.cms-hospital-title{font-size:18px;font-weight:900;}
+.cms-hospital-x{border:0;border-radius:10px;background:rgba(255,255,255,.18);color:#fff;font-size:20px;width:36px;height:36px;cursor:pointer;}
+.cms-hospital-search{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;padding:14px 18px;border-bottom:1px solid #e2e8f0;background:#f8fffd;}
+.cms-hospital-search input{border:1px solid #cfe3de;border-radius:12px;min-height:42px;padding:9px 12px;}
+.cms-hospital-btn{border:0;border-radius:12px;padding:9px 13px;font-weight:900;cursor:pointer;white-space:nowrap;}
+.cms-hospital-btn.secondary{background:#e0f2f1;color:#075e57;}
+.cms-hospital-btn.primary{background:#0f766e;color:#fff;}
+.cms-hospital-results{padding:14px 18px;overflow:auto;min-height:150px;}
+.cms-hospital-result{border:1px solid #d6e5e2;border-radius:14px;padding:13px;margin-bottom:10px;background:#fff;}
+.cms-hospital-result-title{font-weight:900;color:#0f766e;font-size:15px;}
+.cms-hospital-result-address{font-size:12px;color:#334155;margin-top:5px;line-height:1.45;}
+.cms-hospital-result-meta{display:flex;gap:10px;flex-wrap:wrap;color:#64748b;font-size:11px;margin:8px 0;}
+.cms-hospital-select{width:100%;border:0;border-radius:10px;background:#e0f2f1;color:#075e57;padding:8px;font-weight:900;cursor:pointer;}
+.cms-hospital-foot{padding:12px 18px;text-align:right;background:#f8fafc;border-top:1px solid #e2e8f0;}
+.cms-hospital-empty{padding:15px;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;background:#fff;}
+.cms-find-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;}
+@media(max-width:720px){.cms-hospital-search{grid-template-columns:1fr}.cms-hospital-btn{width:100%}}
+</style>
+
+<script>
+/* =====================================================================
+   P5.5.3 FIX - Old batch fetch + centered S&IP-style Hospital Search
+   ===================================================================== */
+(function(){
+  'use strict';
+  function byId(id){ return document.getElementById(id); }
+  function val(id){ var el=byId(id); return el ? String(el.value||'').trim() : ''; }
+  function html(v){ return String(v == null ? '' : v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];}); }
+  function loader(on){ if(window.showLoader) window.showLoader(!!on); }
+  function errMsg(err){ return (err && err.message) ? err.message : String(err || 'Unknown error'); }
+
+  function ensureHospitalSearchUi(){
+    if(!byId('cmsHospitalModal')){
+      var modal=document.createElement('div');
+      modal.id='cmsHospitalModal';
+      modal.className='cms-hospital-modal';
+      modal.innerHTML =
+        '<div class="cms-hospital-card">'+
+          '<div class="cms-hospital-head">'+
+            '<div><div class="cms-hospital-title">Find Hospital / Customer</div><div style="font-size:12px;opacity:.9">Master first, Google second. Google selections are saved to Hospital Master.</div></div>'+
+            '<button class="cms-hospital-x" type="button" onclick="closeCmsHospitalModal()">×</button>'+
+          '</div>'+
+          '<div class="cms-hospital-search">'+
+            '<input type="text" id="cmsHospitalModalSearch" placeholder="Type hospital/customer name">'+
+            '<button class="cms-hospital-btn secondary" type="button" onclick="searchCmsHospitalMasterFromModal()">Search Master</button>'+
+            '<button class="cms-hospital-btn primary" type="button" onclick="searchCmsGoogleHospitalFromModal()">Search Google</button>'+
+          '</div>'+
+          '<div id="cmsHospitalSearchResults" class="cms-hospital-results"></div>'+
+          '<div class="cms-hospital-foot"><button class="cms-hospital-btn secondary" type="button" onclick="closeCmsHospitalModal()">Close</button></div>'+
+        '</div>';
+      document.body.appendChild(modal);
+    }
+
+    if(!byId('googlePlaceId')){
+      var hid=document.createElement('input'); hid.type='hidden'; hid.id='googlePlaceId';
+      var loc=byId('location'); if(loc && loc.parentNode) loc.parentNode.appendChild(hid); else document.body.appendChild(hid);
+    }
+
+    var loc=byId('location');
+    if(loc && !byId('cmsFindHospitalBtn')){
+      var parent=loc.parentNode;
+      var wrap=document.createElement('div');
+      wrap.className='cms-find-wrap';
+      parent.insertBefore(wrap, loc);
+      wrap.appendChild(loc);
+      var btn=document.createElement('button');
+      btn.id='cmsFindHospitalBtn'; btn.type='button'; btn.className='fetch-btn'; btn.textContent='Find';
+      btn.onclick=window.openCmsHospitalModal;
+      wrap.appendChild(btn);
+      var hint=byId('placesHint');
+      if(hint){ hint.textContent='Use Find to search Hospital Master first, then Google if needed.'; hint.style.color='#0f766e'; }
+    }
+  }
+
+  // Old practical behavior: every Fetch click calls backend directly; no cache popup, no same-batch block.
+  window.fetchBatch = function(){
+    var batch=val('batchNo').toUpperCase();
+    if(!batch) return;
+    var btn=document.querySelector('.fetch-btn[onclick="fetchBatch()"], button[onclick="fetchBatch()"]');
+    if(btn){ btn.disabled=true; btn.dataset.oldText=btn.innerText; btn.innerText='Fetching...'; }
+    loader(true);
+    google.script.run
+      .withSuccessHandler(function(res){
+        loader(false); if(btn){ btn.disabled=false; btn.innerText=btn.dataset.oldText||'Fetch'; }
+        var item=byId('itemName'), man=byId('itemNameManual');
+        var list=(res && Array.isArray(res.itemNames)) ? res.itemNames : [];
+        if(!item || !man) return;
+        item.innerHTML=''; item.classList.remove('d-none'); man.classList.add('d-none');
+        if(list.length){
+          if(list.length>1) item.appendChild(new Option('Select Item Name',''));
+          list.forEach(function(name){ item.appendChild(new Option(name,name)); });
+          item.value=list.length===1 ? list[0] : '';
+        } else {
+          item.classList.add('d-none'); man.classList.remove('d-none'); man.value=''; man.placeholder='Enter Item Name manually'; man.focus();
+        }
+      })
+      .withFailureHandler(function(e){ loader(false); if(btn){ btn.disabled=false; btn.innerText=btn.dataset.oldText||'Fetch'; } if(window.showError) window.showError(errMsg(e)); else alert(errMsg(e)); })
+      .getBatchLookupData(batch);
+  };
+
+  window.openCmsHospitalModal = function(){
+    ensureHospitalSearchUi();
+    var q=val('location');
+    byId('cmsHospitalModal').classList.add('show');
+    byId('cmsHospitalModalSearch').value=q;
+    byId('cmsHospitalSearchResults').innerHTML='<div class="cms-hospital-empty">Searching Hospital Master...</div>';
+    window.searchCmsHospitalMasterFromModal();
+  };
+  window.closeCmsHospitalModal = function(){ var m=byId('cmsHospitalModal'); if(m) m.classList.remove('show'); };
+
+  function renderHospitalResults(rows, source){
+    var box=byId('cmsHospitalSearchResults');
+    rows=rows||[];
+    if(!rows.length){ box.innerHTML='<div class="cms-hospital-empty">No results found.</div>'; return; }
+    box.innerHTML=rows.map(function(h){
+      var encoded=encodeURIComponent(JSON.stringify(h));
+      return '<div class="cms-hospital-result">'+
+        '<div class="cms-hospital-result-title">'+html(h.hospitalName||h.name||'')+'</div>'+
+        '<div class="cms-hospital-result-address">'+html(h.address||'')+'</div>'+
+        '<div class="cms-hospital-result-meta"><span>'+html(h.source||source||'')+'</span>'+(h.phoneNumber?'<span>Phone: '+html(h.phoneNumber)+'</span>':'')+(h.rating?'<span>Rating: '+html(h.rating)+'</span>':'')+'</div>'+
+        '<button class="cms-hospital-select" type="button" onclick="selectCmsHospitalFromModal(\''+encoded+'\')">Select</button>'+ 
+      '</div>';
+    }).join('');
+  }
+
+  window.searchCmsHospitalMasterFromModal = function(){
+    var q=val('cmsHospitalModalSearch') || val('location');
+    var box=byId('cmsHospitalSearchResults');
+    if(!box) return;
+    if(!q){ box.innerHTML='<div class="cms-hospital-empty">Type hospital/customer name first.</div>'; return; }
+    box.innerHTML='<div class="cms-hospital-empty">Searching Hospital Master...</div>';
+    google.script.run
+      .withSuccessHandler(function(rows){ rows=rows||[]; if(!rows.length){ box.innerHTML='<div class="cms-hospital-empty">No hospital found in master. Click Search Google.</div>'; return; } renderHospitalResults(rows,'MASTER'); })
+      .withFailureHandler(function(e){ box.innerHTML='<div class="cms-hospital-empty">Master Error: '+html(errMsg(e))+'</div>'; })
+      .searchCmsHospitalMaster(q);
+  };
+
+  window.searchCmsGoogleHospitalFromModal = function(){
+    var q=val('cmsHospitalModalSearch') || val('location');
+    var box=byId('cmsHospitalSearchResults');
+    if(!box) return;
+    if(!q){ box.innerHTML='<div class="cms-hospital-empty">Type hospital/customer name first.</div>'; return; }
+    box.innerHTML='<div class="cms-hospital-empty">Searching Google...</div>';
+    google.script.run
+      .withSuccessHandler(function(rows){ rows=rows||[]; if(!rows.length){ box.innerHTML='<div class="cms-hospital-empty">No result found from Google.</div>'; return; } renderHospitalResults(rows,'GOOGLE'); })
+      .withFailureHandler(function(e){ box.innerHTML='<div class="cms-hospital-empty">Google Error: '+html(errMsg(e))+'</div>'; })
+      .searchCmsGoogleHospitals(q);
+  };
+
+  window.selectCmsHospitalFromModal = function(encoded){
+    var h=JSON.parse(decodeURIComponent(encoded));
+    if(String(h.source||'').toUpperCase()==='GOOGLE' && h.placeId){
+      loader(true);
+      google.script.run
+        .withSuccessHandler(function(details){ loader(false); fillCmsHospitalDetails(details||h); window.closeCmsHospitalModal(); })
+        .withFailureHandler(function(e){ loader(false); if(window.showError) window.showError(errMsg(e)); else alert(errMsg(e)); })
+        .getCmsGoogleHospitalDetails(h.placeId);
+      return;
+    }
+    // Master selection can also touch Last Selected At in backend when ID/place exists.
+    if(h.hospitalId || h.placeId){
+      google.script.run.withSuccessHandler(function(details){ fillCmsHospitalDetails(details||h); }).withFailureHandler(function(){ fillCmsHospitalDetails(h); }).saveCmsHospitalToMaster(h);
+    } else {
+      fillCmsHospitalDetails(h);
+    }
+    window.closeCmsHospitalModal();
+  };
+
+  function fillCmsHospitalDetails(h){
+    h=h||{};
+    if(byId('location')) byId('location').value = h.hospitalName || h.name || '';
+    if(byId('address')) byId('address').value = h.address || '';
+    if(byId('city')) byId('city').value = h.city || '';
+    if(byId('state')) byId('state').value = h.state || '';
+    if(byId('pincode')) byId('pincode').value = h.pincode || '';
+    if(byId('googlePlaceId')) byId('googlePlaceId').value = h.placeId || '';
+  }
+
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') window.closeCmsHospitalModal(); });
+  window.addEventListener('DOMContentLoaded', ensureHospitalSearchUi);
+})();
+</script>
+
+
+<style>
+.fast-workspace{max-width:1380px;margin:auto}.fast-body{padding:16px;background:#f7fbfa}.fast-case-full{width:100%;margin-bottom:14px}.fast-timeline-grid{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:14px}.fast-action-grid{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:14px}.fast-side-chat{max-width:100%;}.fast-workspace .workspace-card{margin-bottom:14px}.fast-workspace .stage-progress{overflow-x:auto;padding:10px 4px 8px}.fast-workspace .stage-box{min-width:105px}.fast-case-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.fast-action-buttons{display:flex;gap:10px;flex-wrap:wrap}.fast-action-buttons button,.fast-action-buttons a{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#0f766e;color:#fff;text-decoration:none}.fast-action-buttons .soft{background:#dff7f2;color:#075e57}.fast-action-buttons .warn{background:#f59e0b}.fast-action-buttons .danger{background:#dc2626}.fast-capa-card{border:1px solid #dceceb;border-radius:14px;background:#fff;padding:12px;margin-bottom:10px}.fast-upload-row{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:10px;align-items:end}.fast-info-card{border:1px solid #dbeafe;background:#f8fbff;border-radius:14px;padding:12px}.fast-info-card.active{border-color:#f59e0b;background:#fffbeb}.chat-msg{border-left:4px solid #0f766e;background:#f8fbfb;border-radius:10px;padding:9px;margin-bottom:8px}.chat-msg.sales{border-left-color:#2563eb;background:#f5f8ff}.chat-msg small{color:#64748b}.request-mini-timeline{display:flex;gap:10px;flex-wrap:wrap}.req-mini{border:1px solid #d8e5e3;border-radius:14px;padding:10px 12px;min-width:122px;background:#f8fafc}.req-mini .dot{width:16px;height:16px;border-radius:50%;background:#cbd5e1;margin-bottom:8px}.req-mini.open .dot,.req-mini.reopened .dot{background:#f59e0b}.req-mini.sales-responded .dot{background:#2563eb}.req-mini.closed .dot{background:#16a34a}.req-mini.open,.req-mini.reopened{border-color:#f59e0b;background:#fffbeb}.req-mini.sales-responded{border-color:#93c5fd;background:#eff6ff}.req-mini.closed{border-color:#86efac;background:#f0fdf4}@media(max-width:1100px){.fast-timeline-grid,.fast-action-grid{grid-template-columns:1fr}.fast-upload-row{grid-template-columns:1fr}}
+</style>
+
+<script>
+(function(){
+  function byId(id){return document.getElementById(id)}
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]})}
+  function val(id){var e=byId(id);return e&&typeof e.value==='string'?e.value.trim():''}
+  function safeJs(v){return String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
+  function publicTrackingUrl(complaintNo){ return window.location.href.split('?')[0] + '?track=' + encodeURIComponent(complaintNo || ''); }
+  function setHtml(id,html){var e=byId(id); if(e)e.innerHTML=html}
+  function setText(id,txt){var e=byId(id); if(e)e.innerText=txt}
+  function popup(t,m,cb){ if(window.showInfo) return window.showInfo(t,m); alert((t?t+'\n':'')+(m||'')); if(cb)cb(); }
+  function fileToDataUrl(id){return new Promise(function(resolve,reject){var el=byId(id),f=el&&el.files&&el.files[0]; if(!f)return resolve(''); var r=new FileReader(); r.onload=function(e){resolve(e.target.result)}; r.onerror=reject; r.readAsDataURL(f);});}
+  function showWorkspace(){ if(window.showPage) window.showPage('workspacePage'); else { var p=byId('workspacePage'); if(p)p.classList.add('active'); } }
+
+  function renderCaseHero(c){
+    setText('detailTitle', c.complaintNo||'—');
+    setText('trackingSubTitle','Complaint No: '+(c.complaintNo||'—'));
+    var html='<div class="cms-detail-hero investigation"><div class="cms-detail-main"><div class="detail-kicker">Complaint / CAPA Case</div><h4>'+esc(c.complaintNo||'—')+'</h4><div class="detail-hero-grid">'
+      +'<div><span>Customer</span><b>'+esc(c.customer||'—')+'</b></div><div><span>Product</span><b>'+esc(c.product||'—')+'</b></div><div><span>Batch</span><b>'+esc(c.batch||'—')+'</b></div><div><span>Severity</span><b>'+esc(c.severity||'—')+'</b></div>'
+      +'</div></div><div class="cms-detail-status"><div class="stage-pill big">'+esc(c.status||'Complaint Booked')+'</div><div class="small mt-2">Owner: <b>'+esc(c.stageOwner||'—')+'</b></div><div class="small">CAPA: <b>'+esc(c.capaSubStatus||'Not started')+'</b></div></div></div>'
+      +'<div class="fast-case-links"><a class="btn-soft" target="_blank" href="'+esc(c.pdfUrl||'#')+'">Open PDF</a><a class="btn-soft" target="_blank" href="'+esc(c.folderUrl||'#')+'">Open Folder</a><a class="btn-soft" target="_blank" href="'+esc(publicTrackingUrl(c.complaintNo))+'">Public Tracking</a><button class="btn-soft" type="button" onclick="copyPublicTrackingLink()">Copy Tracking Link</button></div>';
+    setHtml('detailBody',html);
+  }
+
+  function renderTracking(stages, logs){
+    setHtml('stageProgress',(stages||[]).map(function(s){var cls=String(s.status||'Pending').toLowerCase();var icon=s.status==='Done'?'✓':(s.status==='Active'?'•':'');return '<div class="stage-box '+cls+'"><div class="stage-circle">'+icon+'</div><div class="stage-name">'+esc(s.stage)+'</div></div>'}).join(''));
+    setHtml('trackingLogList',(logs||[]).map(function(l){return '<div class="log-row"><div><div class="log-date">'+esc((l.time||'').split(' ')[0]||'—')+'</div><div class="log-time">'+esc((l.time||'').split(' ').slice(1).join(' '))+'</div></div><div class="log-dot">✓</div><div><div class="log-stage">'+esc(l.newStatus||l.stage||'—')+'</div><div class="log-remarks">'+esc(l.remark||'')+'</div><div class="log-remarks">Updated by: '+esc(l.user||'System')+'</div></div></div>'}).join('') || '<div class="text-muted small">No routing steps.</div>');
+  }
+
+  function renderRequestTimeline(info){
+    info=info||{}; var requests=info.requests||[]; setText('infoRequestCounter',(info.requestCount||0)+' / '+(info.maxRequests||3)+' Requests');
+    var html=''; for(var i=1;i<=3;i++){var r=requests.find(function(x){return Number(x.requestNo)===i}); var cls=r?String(r.status||'open').toLowerCase().replace(/\s+/g,'-'):'not-used'; html+='<div class="req-mini '+cls+'"><div class="dot"></div><b>Request '+i+'</b><div class="small">'+esc(r?r.status:'Not Used')+'</div></div>'} setHtml('requestMiniTimeline',html);
+  }
+
+  function renderInfo(info){
+    info=info||{}; var p=info.permissions||{}; var active=info.activeRequest; var reqs=info.requests||[]; var html='';
+    if(p.canRaise){html+='<div class="fast-info-card active"><b>Raise More Info Request</b><textarea id="newInfoQuestion" class="form-control mt-2" rows="3" placeholder="Write what information is required from Sales"></textarea><input id="newInfoFile" type="file" class="form-control mt-2"><button class="btn-primary-custom mt-2" onclick="raiseInfoRequestFast()">Raise Request</button></div>'}
+    if(!p.canRaise && !active){html+='<div class="fast-info-card"><b>No active request</b><div class="small text-muted">Request channel is clear or not available for this stage/role.</div></div>'}
+    reqs.forEach(function(r){var sid=safeJs(r.requestId); html+='<div class="fast-info-card '+(r.status==='Open'||r.status==='Reopened'?'active':'')+' mt-2"><b>'+esc(r.requestId)+'</b> <span class="status-badge">'+esc(r.status)+'</span><div class="mt-1">'+esc(r.qaQuestion||'')+'</div>';
+      if(r.permissions&&r.permissions.canRespond){html+='<textarea id="salesResp_'+sid+'" class="form-control mt-2" rows="3" placeholder="Sales response"></textarea><input id="salesRespFile_'+sid+'" type="file" class="form-control mt-2"><button class="btn-primary-custom mt-2" onclick="respondInfoRequestFast(\''+sid+'\')">Submit Response</button>'}
+      if(r.permissions&&r.permissions.canReview){html+='<textarea id="qaReview_'+sid+'" class="form-control mt-2" rows="2" placeholder="QA review/reopen reason"></textarea><button class="btn-primary-custom mt-2 me-2" onclick="reviewInfoRequestFast(\''+sid+'\',\'ACCEPT\')">Accept & Close</button><button class="btn-outline mt-2" onclick="reviewInfoRequestFast(\''+sid+'\',\'REOPEN\')">Reopen</button>'}
+      html+='</div>'});
+    setHtml('infoRequestContent',html);
+    renderChat(reqs);
+  }
+  function renderChat(reqs){var all=[];(reqs||[]).forEach(function(r){(r.messages||[]).forEach(function(m){m._status=r.status;all.push(m)})});setHtml('workspaceChatPanel',all.length?all.map(function(m){var isSales=String(m.senderRole||'').toLowerCase().indexOf('sales')>=0;return '<div class="chat-msg '+(isSales?'sales':'')+'"><b>'+esc(m.type||'Comment')+'</b><div>'+esc(m.message||'')+'</div><small>'+esc(m.senderName||'')+' • '+esc(m.time||'')+'</small>'+(m.attachmentUrl?'<br><a target="_blank" href="'+esc(m.attachmentUrl)+'">Attachment</a>':'')+'</div>'}).join(''):'<div class="chat-empty">No request conversation yet.</div>')}
+
+  function renderStageActions(data){var html=''; var actions=data.stageActions||[]; if(actions.length){html+='<div class="fast-action-buttons">'+actions.map(function(a){return '<button onclick="runFastStageAction(\''+safeJs(a.code)+'\','+(a.remarkRequired?'true':'false')+')">'+esc(a.label)+'</button>'}).join('')+'</div><textarea id="fastStageRemark" class="form-control mt-2" rows="2" placeholder="Optional remark"></textarea>'} else {html+='<div class="info-empty">No stage action is pending for your role.</div>'} setHtml('simpleNextAction',html)}
+
+  function renderCapa(data){var c=data.capa||{}; var latest=c.latest; var html=''; if(latest){html+='<div class="fast-capa-card"><b>Latest CAPA: V'+esc(latest.version||'')+'</b><div>Status: '+esc(latest.status||data.capaSubStatus||'')+'</div>'+(latest.documentUrl?'<a class="btn-soft mt-2" target="_blank" href="'+esc(latest.documentUrl)+'">View CAPA</a>':'')+'</div>'} else html+='<div class="fast-capa-card">No CAPA document uploaded yet.</div>';
+    if(c.canUpload){html+='<div class="fast-upload-row"><div><label>CAPA Document</label><input id="fastCapaFile" type="file" class="form-control"><textarea id="fastCapaRemark" class="form-control mt-2" rows="2" placeholder="Optional CAPA remark"></textarea></div><button class="btn-primary-custom" onclick="uploadFastCapa()">Upload CAPA</button></div>'}
+    if(c.canSalesAction){html+='<textarea id="fastSalesRemark" class="form-control mt-2" rows="2" placeholder="Optional approval remark / revision reason"></textarea><div class="fast-action-buttons mt-2"><button onclick="approveFastCapa()">Approve CAPA & Close</button><button class="warn" onclick="reviseFastCapa()">Request Revision</button></div>'}
+    var hist=c.history||[]; if(hist.length>1){html+='<details class="mt-2"><summary>CAPA Version History</summary>'+hist.map(function(h){return '<div class="fast-capa-card"><b>V'+esc(h.version||'')+'</b> '+esc(h.status||'')+(h.documentUrl?' <a target="_blank" href="'+esc(h.documentUrl)+'">Open</a>':'')+'</div>'}).join('')+'</details>'} setHtml('p4WorkspaceContent',html)}
+
+  window.openCmsDetail=function(complaintNo){var c=(window.CMS_ROWS||[]).find(function(x){return String(x.complaintNo)===String(complaintNo)}); if(!c){popup('Complaint Detail','Complaint not found. Refresh list once.');return;} window.CURRENT_COMPLAINT=c; renderCaseHero(c); ['stageProgress','requestMiniTimeline','simpleNextAction','infoRequestContent','p4WorkspaceContent','workspaceChatPanel'].forEach(function(id){setHtml(id,'<div class="text-muted small py-2">Loading...</div>')}); showWorkspace(); window.showLoader(true); google.script.run.withSuccessHandler(function(res){window.showLoader(false); if(!res||res.status!=='success'){popup('Load failed',(res&&res.message)||'Unable to load workspace');return;} renderTracking((res.tracking||{}).stages,(res.tracking||{}).logs); renderRequestTimeline(res.info); renderStageActions(res); renderInfo(res.info); renderCapa(res);}).withFailureHandler(function(e){window.showLoader(false);popup('Load failed',(e&&e.message)||'Workspace load failed')}).getCmsFastWorkspaceData(complaintNo)};
+
+function runFastStageAction(actionCode, complaintNo) {
+  complaintNo = complaintNo || (window.CMS_ACTIVE_COMPLAINT && window.CMS_ACTIVE_COMPLAINT.complaintNo) || '';
+  actionCode = String(actionCode || '').trim();
+
+  if (!complaintNo) {
+    showError('Complaint number missing.');
+    return;
+  }
+
+  const remarkBox = document.getElementById('fastStageRemark');
+  const remark = remarkBox ? remarkBox.value.trim() : '';
+
+  const payload = {
+    complaintNo: complaintNo,
+    actionCode: actionCode,
+    remark: remark
+  };
+
+  showLoader(true, 'Updating stage...');
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showLoader(false);
+
+      if (!res || res.status === 'error') {
+        showError((res && res.message) ? res.message : 'Stage update failed.');
+        return;
+      }
+
+      showSuccess('Stage updated successfully.');
+      if (typeof loadFastWorkspace === 'function') {
+        loadFastWorkspace(complaintNo);
+      } else if (typeof openComplaintWorkspace === 'function') {
+        openComplaintWorkspace(complaintNo);
+      }
+    })
+    .withFailureHandler(function(err) {
+      showLoader(false);
+      showError((err && err.message) ? err.message : String(err || 'Stage update failed.'));
+    })
+    .executeCmsLifecycleAction(payload);
+}
+
+function updateDashboardCardsFromRows(rows) {
+  rows = Array.isArray(rows) ? rows : [];
+
+  const total = rows.length;
+
+  const closed = rows.filter(function(r) {
+    const s = String(r.status || r.currentStage || '').toLowerCase();
+    return s.indexOf('closed') >= 0 || s.indexOf('case closed') >= 0;
+  }).length;
+
+  const open = rows.filter(function(r) {
+    const s = String(r.status || r.currentStage || '').toLowerCase();
+    return s && s.indexOf('closed') < 0 && s.indexOf('case closed') < 0;
+  }).length;
+
+  const overdue = rows.filter(function(r) {
+    const age = Number(r.ageDays || r.age || 0);
+    const s = String(r.status || r.currentStage || '').toLowerCase();
+    return age > 30 && s.indexOf('closed') < 0;
+  }).length;
+
+  setTextSafe('dashTotal', total);
+  setTextSafe('dashOpen', open);
+  setTextSafe('dashClosed', closed);
+  setTextSafe('dashOverdue', overdue);
+}
+
+function setTextSafe(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+
+  window.uploadFastCapa=function(){var c=window.CURRENT_COMPLAINT;if(!c)return;fileToDataUrl('fastCapaFile').then(function(file){if(!file){popup('Required','Please choose CAPA document');return;}window.showLoader(true);google.script.run.withSuccessHandler(function(res){window.showLoader(false);popup('CAPA Uploaded',(res&&res.message)||'CAPA uploaded');window.openCmsDetail(c.complaintNo)}).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'CAPA upload failed')}).uploadCmsCapaDocumentSimple(c.complaintNo,{documentDataUrl:file,qaRemark:val('fastCapaRemark')})})};
+  window.approveFastCapa=function(){var c=window.CURRENT_COMPLAINT;if(!c)return;if(!confirm('Approve CAPA and close case?'))return;window.showLoader(true);google.script.run.withSuccessHandler(function(res){window.showLoader(false);popup('CAPA Approved',(res&&res.message)||'Case closed');window.openCmsDetail(c.complaintNo)}).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'Approval failed')}).verifyCmsCapaDocumentSimple(c.complaintNo,val('fastSalesRemark'))};
+  window.reviseFastCapa=function(){var c=window.CURRENT_COMPLAINT;if(!c)return;var r=val('fastSalesRemark');if(!r){popup('Required','Revision reason is required');return;}window.showLoader(true);google.script.run.withSuccessHandler(function(res){window.showLoader(false);popup('Revision Requested',(res&&res.message)||'Revision requested');window.openCmsDetail(c.complaintNo)}).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'Revision request failed')}).requestCmsCapaRevision(c.complaintNo,r)};
+  window.raiseInfoRequestFast=function(){var c=window.CURRENT_COMPLAINT;if(!c)return;var q=val('newInfoQuestion');if(!q){popup('Required','Write request details.');return;}fileToDataUrl('newInfoFile').then(function(file){window.showLoader(true);google.script.run.withSuccessHandler(function(res){window.showLoader(false);popup('Request Raised',(res&&res.message)||'Request raised');window.openCmsDetail(c.complaintNo)}).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'Request failed')}).raiseCmsInfoRequest(c.complaintNo,q,file)})};
+  window.respondInfoRequestFast=function(id){var c=window.CURRENT_COMPLAINT;var txt=val('salesResp_'+id);if(!txt){popup('Required','Write sales response.');return;}fileToDataUrl('salesRespFile_'+id).then(function(file){window.showLoader(true);google.script.run.withSuccessHandler(function(res){window.showLoader(false);popup('Response Sent',(res&&res.message)||'Response submitted');window.openCmsDetail(c.complaintNo)}).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'Response failed')}).respondCmsInfoRequest(id,txt,file)})};
+  window.reviewInfoRequestFast=function(id,decision){var c=window.CURRENT_COMPLAINT;var comment=val('qaReview_'+id);if(decision==='REOPEN'&&!comment){popup('Required','Reopen reason is required');return;}window.showLoader(true);google.script.run.withSuccessHandler(function(res){window.showLoader(false);popup('Request Updated',(res&&res.message)||'Request updated');window.openCmsDetail(c.complaintNo)}).withFailureHandler(function(e){window.showLoader(false);popup('Failed',(e&&e.message)||'Review failed')}).reviewCmsInfoRequest(id,decision,comment)};
+})();
+</script>

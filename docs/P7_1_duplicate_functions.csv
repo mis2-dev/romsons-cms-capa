@@ -1,0 +1,102 @@
+function,count,file,line,type,snippet
+getCmsFastWorkspaceData,4,Code.gs,2906,function,function getCmsFastWorkspaceData(complaintNo) {
+getCmsFastWorkspaceData,4,Code_P6_1_FirestoreFastIntegration.gs,10,function,"function getCmsFastWorkspaceData(complaintNo), rename that old function to:"
+getCmsFastWorkspaceData,4,Code_P6_1_FirestoreFastIntegration.gs,41,function,function getCmsFastWorkspaceData(complaintNo) {
+getCmsFastWorkspaceData,4,Code_P6_2_FirestoreStageCapaActions.gs,129,function,function getCmsFastWorkspaceData(complaintNo) {
+esc,3,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,28,function,"function esc(v){return String(v == null ? '' : v).replace(/[&<>""']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','""':'&quot;',""'"":'&#39;'}[c];});}"
+esc,3,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,13,function,"function esc(v){return String(v==null?'':v).replace(/[&<>""']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','""':'&quot;',""'"":'&#39;'}[c]})}"
+esc,3,p65_patch/CMS_Bootstrap_P6_5_UserAccessManagement.html,13,function,"function esc(v){return String(v==null?'':v).replace(/[&<>""']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','""':'&quot;',""'"":'&#39;'}[c]})}"
+executeCmsLifecycleAction,3,Code.gs,1742,function,"function executeCmsLifecycleAction(complaintNo, actionCode, remark) {"
+executeCmsLifecycleAction,3,Code_P6_2_FirestoreStageCapaActions.gs,196,function,"function executeCmsLifecycleAction(complaintNo, actionCode, remark) {"
+executeCmsLifecycleAction,3,Code_P6_2_FirestoreStageCapaActions.gs,583,function,function executeCmsLifecycleAction(payload) {
+getCmsTrackingData,3,Code.gs,2941,function,"function getCmsTrackingData(fy, statusFilter) {"
+getCmsTrackingData,3,Code_P6_2_FirestoreStageCapaActions.gs,43,function,"function getCmsTrackingData(fy, statusFilter) {"
+getCmsTrackingData,3,p64_patch/ZZZ_Code_P6_4_DashboardChatDataFix.gs,31,function,"function getCmsTrackingData(fy, statusFilter) {"
+loader,3,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,33,function,function loader(on){var el=qs('loader'); if(el) el.style.display=on?'flex':'none';}
+loader,3,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,17,function,function loader(on){var el=q('loader'); if(el)el.style.display=on?'flex':'none'}
+loader,3,p65_patch/CMS_Bootstrap_P6_5_UserAccessManagement.html,17,function,function loader(on){var el=q('loader'); if(el)el.style.display=on?'flex':'none'}
+val,3,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,29,function,function val(){for(var i=0;i<arguments.length;i++){var v=arguments[i]; if(v!==undefined && v!==null && String(v).trim()!=='') return v;} return '';}
+val,3,p65_patch/CMS_Bootstrap_P6_5_UserAccessManagement.html,14,function,function val(id){var e=q(id); return e&&typeof e.value==='string'?e.value.trim():''}
+val,3,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,16,function,function val(id){ var el = byId(id); return el ? el.value : ''; }
+window.openCmsDetail,3,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,38,window,window.openCmsDetail = function(complaintNo){
+window.openCmsDetail,3,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,48,window,window.openCmsDetail=function(no){ if(!no){showError('Complaint No missing');return;} if(typeof showPage==='function')showPage('workspacePage'); window.CURRENT_
+window.openCmsDetail,3,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,192,window,window.openCmsDetail = function(complaintNo){
+window.runFastStageAction,3,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,56,window,"window.runFastStageAction = function(actionCode, complaintNo){"
+window.runFastStageAction,3,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,56,window,"window.runFastStageAction=function(code,no){no=no||(window.CURRENT_COMPLAINT&&window.CURRENT_COMPLAINT.complaintNo)||''; if(!no){showError('Complaint No missing"
+window.runFastStageAction,3,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,273,window,"window.runFastStageAction = function(actionCode, complaintNo){"
+add,2,Code.gs,1004,function,"function add(label, value) {"
+add,2,p63_patch/Code_P6_3_WorkspaceChatAccess.gs,84,function,"function add(code, label, type, needsRemark) {"
+approveCmsCapaAndCloseP6,2,Code_P6_1_FirestoreFastIntegration.gs,196,function,"function approveCmsCapaAndCloseP6(complaintNo, remark) {"
+approveCmsCapaAndCloseP6,2,Code_P6_2_FirestoreStageCapaActions.gs,267,function,"function approveCmsCapaAndCloseP6(complaintNo, remark) {"
+clearP6FirestoreTokenCache,2,Code_P6_FirestoreBridge.gs.txt,471,function,function clearP6FirestoreTokenCache() {
+clearP6FirestoreTokenCache,2,Code_P6_1_FirestoreFastIntegration.gs,270,function,function clearP6FirestoreTokenCache() {
+cmsP6GetComplaintSheet_,2,Code_P6_FirestoreBridge.gs.txt,239,function,function cmsP6GetComplaintSheet_() {
+cmsP6GetComplaintSheet_,2,Code_P6_1_FirestoreFastIntegration.gs,328,function,function cmsP6GetComplaintSheet_() {
+debugP6FirestoreConfig,2,Code_P6_FirestoreBridge.gs.txt,459,function,function debugP6FirestoreConfig() {
+debugP6FirestoreConfig,2,Code_P6_1_FirestoreFastIntegration.gs,256,function,function debugP6FirestoreConfig() {
+getCmsComplaintTracking,2,Code.gs,1900,function,function getCmsComplaintTracking(complaintNo) {
+getCmsComplaintTracking,2,Code_P6_2_FirestoreStageCapaActions.gs,449,function,function getCmsComplaintTracking(complaintNo) {
+getCmsCurrentAccessP6_3,2,p63_patch/Code_P6_3_WorkspaceChatAccess.gs,48,function,function getCmsCurrentAccessP6_3() {
+getCmsCurrentAccessP6_3,2,p65_patch/ZZZ_Code_P6_5_UserAccessManagement.gs,207,function,function getCmsCurrentAccessP6_3() {
+getCmsInvestigationCapaWorkspace,2,Code.gs,2307,function,function getCmsInvestigationCapaWorkspace(complaintNo) {
+getCmsInvestigationCapaWorkspace,2,Code.gs,2524,function,function getCmsInvestigationCapaWorkspace(complaintNo) {
+getCmsTrackingDataLegacy,2,Code.gs,1824,function,function getCmsTrackingDataLegacy(fyKey) {
+getCmsTrackingDataLegacy,2,Code.gs,2398,function,function getCmsTrackingDataLegacy(fyKey) {
+getMyCmsAccess,2,Code.gs,172,function,function getMyCmsAccess() {
+getMyCmsAccess,2,p65_patch/ZZZ_Code_P6_5_UserAccessManagement.gs,211,function,function getMyCmsAccess() {
+linkBtn,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,120,function,"function linkBtn(label,url){return url?'<a class=""p63-btn soft"" target=""_blank"" href=""'+esc(url)+'"">'+esc(label)+'</a>':'<button class=""p63-btn secondary"" disab"
+linkBtn,2,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,242,function,"function linkBtn(label, url){ return url ? '<a class=""btn-soft"" target=""_blank"" href=""'+safe(url)+'"">'+safe(label)+'</a>' : '<span class=""btn-soft disabled"">'+s"
+markCmsInvestigationCompleteSimple,2,Code.gs,2579,function,"function markCmsInvestigationCompleteSimple(complaintNo, remark) {"
+markCmsInvestigationCompleteSimple,2,Code_P6_2_FirestoreStageCapaActions.gs,235,function,"function markCmsInvestigationCompleteSimple(complaintNo, remark) {"
+onOpen,2,Testing.gs,25,function,function onOpen() {
+onOpen,2,WA.gs,40,function,function onOpen() {
+q,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,12,function,function q(id){return document.getElementById(id)}
+q,2,p65_patch/CMS_Bootstrap_P6_5_UserAccessManagement.html,12,function,function q(id){return document.getElementById(id)}
+raiseCmsInfoRequest,2,Code.gs,2170,function,"function raiseCmsInfoRequest(complaintNo, question, attachmentDataUrl) {"
+raiseCmsInfoRequest,2,Code_P6_2_FirestoreStageCapaActions.gs,340,function,"function raiseCmsInfoRequest(complaintNo, question, fileDataUrl) {"
+renderActions,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,131,function,"function renderActions(actions,no){"
+renderActions,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,55,function,"function renderActions(actions,no){var html='<div class=""p64-action-note""><textarea id=""p64StageRemark"" placeholder=""Remark / reference, optional for normal act"
+renderCapa,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,192,function,"function renderCapa(capa,no,res){"
+renderCapa,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,63,function,"function renderCapa(capa,no,res){var latest=(capa&&capa.latest)||{}; var html=latest.documentUrl?'<div class=""p64-form""><b>Latest CAPA Version '+esc(latest.vers"
+renderCase,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,96,function,"function renderCase(c,res){"
+renderCase,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,53,function,"function renderCase(res,c,no){var l=res.quickLinks||{}; set('detailBody','<div class=""p64-case""><div class=""p64-case-top""><div><div class=""detail-kicker"">Compla"
+renderChat,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,234,function,"function renderChat(chat,info,no){"
+renderChat,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,62,function,"function renderChat(chat){if(!chat||!chat.length){set('workspaceChatPanel','<div class=""chat-empty"">No request conversation yet.</div>');return;} set('workspace"
+renderInfo,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,138,function,"function renderInfo(info,no){"
+renderInfo,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,58,function,"function renderInfo(info,no){var reqs=info.requests||[], active=info.activeRequest||info.active||null, p=info.permissions||{}; text('infoRequestCounter',(reqs.l"
+renderStages,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,122,function,"function renderStages(stages,no){"
+renderStages,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,54,function,"function renderStages(stages){set('stageProgress',(stages||[]).map(function(s){var cls=String(s.status||'pending').toLowerCase();var mark=cls==='done'?'✓':(cls="
+renderTimeline,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,244,function,function renderTimeline(logs){
+renderTimeline,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,67,function,"function renderTimeline(logs){set('trackingLogList',(logs||[]).map(function(l){return '<div class=""log-row""><div><div class=""log-date"">'+esc((l.date||l.createdA"
+requestCmsCapaRevision,2,Code.gs,2368,function,"function requestCmsCapaRevision(complaintNo, reason) {"
+requestCmsCapaRevision,2,Code_P6_2_FirestoreStageCapaActions.gs,297,function,"function requestCmsCapaRevision(complaintNo, reason) {"
+requestCmsCapaRevisionP6,2,Code_P6_1_FirestoreFastIntegration.gs,223,function,"function requestCmsCapaRevisionP6(complaintNo, reason) {"
+requestCmsCapaRevisionP6,2,Code_P6_2_FirestoreStageCapaActions.gs,301,function,"function requestCmsCapaRevisionP6(complaintNo, reason) {"
+respondCmsInfoRequest,2,Code.gs,2195,function,"function respondCmsInfoRequest(requestId, responseText, attachmentDataUrl) {"
+respondCmsInfoRequest,2,Code_P6_2_FirestoreStageCapaActions.gs,374,function,"function respondCmsInfoRequest(requestId, response, fileDataUrl) {"
+reviewCmsInfoRequest,2,Code.gs,2209,function,"function reviewCmsInfoRequest(requestId, decision, comment) {"
+reviewCmsInfoRequest,2,Code_P6_2_FirestoreStageCapaActions.gs,395,function,"function reviewCmsInfoRequest(requestId, decision, comment) {"
+set,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,31,function,"function set(id,html){var el=qs(id); if(el) el.innerHTML=html;}"
+set,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,15,function,"function set(id,html){var e=q(id); if(e)e.innerHTML=html}"
+setupCmsFyDashboardP5,2,Code.gs,2391,function,function setupCmsFyDashboardP5() {
+setupCmsFyDashboardP5,2,Code.gs,2461,function,function setupCmsFyDashboardP5() {
+syncCmsComplaintToFirestore,2,Code_P6_FirestoreBridge.gs.txt,80,function,function syncCmsComplaintToFirestore(complaintNo) {
+syncCmsComplaintToFirestore,2,Code_P6_1_FirestoreFastIntegration.gs,281,function,function syncCmsComplaintToFirestore(complaintNo) {
+text,2,p63_patch/CMS_Bootstrap_P6_3_WorkspaceChatFix.html,32,function,"function text(id,v){var el=qs(id); if(el) el.textContent=v == null ? '' : String(v);}"
+text,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,16,function,"function text(id,v){var e=q(id); if(e)e.textContent=(v==null?'':String(v))}"
+uploadCmsCapaDocumentSimple,2,Code.gs,2591,function,"function uploadCmsCapaDocumentSimple(complaintNo, payload) {"
+uploadCmsCapaDocumentSimple,2,Code_P6_2_FirestoreStageCapaActions.gs,242,function,"function uploadCmsCapaDocumentSimple(complaintNo, payload) {"
+verifyCmsCapaDocumentSimple,2,Code.gs,2601,function,"function verifyCmsCapaDocumentSimple(complaintNo, remark) {"
+verifyCmsCapaDocumentSimple,2,Code_P6_2_FirestoreStageCapaActions.gs,263,function,"function verifyCmsCapaDocumentSimple(complaintNo, remark) {"
+window.changeFinancialYear,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,45,window,window.changeFinancialYear=function(v){window.CURRENT_FY_KEY=v||'ALL'; if(q('fyFilter'))q('fyFilter').value=window.CURRENT_FY_KEY; if(q('listFyFilter'))q('listF
+window.changeFinancialYear,2,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,96,window,window.changeFinancialYear = function(fy){
+window.filterCmsRows,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,46,window,"window.filterCmsRows=function(){var query=value('searchBox').toLowerCase(), st=value('statusFilter'); renderList((window.CMS_ROWS||[]).filter(function(r){return"
+window.filterCmsRows,2,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,180,window,window.filterCmsRows = function(){
+window.loadCmsTrackingV2,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,44,window,window.loadCmsTrackingV2=function(done){ loader(true); var fy=(q('fyFilter')&&q('fyFilter').value)||(q('listFyFilter')&&q('listFyFilter').value)||window.CURRENT
+window.loadCmsTrackingV2,2,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,108,window,window.loadCmsTrackingV2 = function(){
+window.showError,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,32,window,"window.showError=function(title,msg){ if(arguments.length===1){msg=title; title='❌ CMS Error';} p64Notify(title||'❌ CMS Error',msg||'Something went wrong'); };"
+window.showError,2,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,69,window,"window.showError = function(msg, title){ cmsNotify('error', title || 'CMS Error', msg || 'Something went wrong.'); };"
+window.showInfo,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,33,window,"window.showInfo=function(title,msg){ p64Notify(title||'CMS',msg||''); };"
+window.showInfo,2,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,70,window,"window.showInfo = function(msg, title){ cmsNotify('info', title || 'CMS Info', msg || 'No details available.'); };"
+window.showSuccess,2,p64_patch/CMS_Bootstrap_P6_4_DashboardChatDataFix.html,31,window,"window.showSuccess=function(title,msg,complaintNo){ if(arguments.length===1){msg=title; title='✅ Success';} p64Notify(title||'✅ Success',(msg||'Done')+(complain"
+window.showSuccess,2,p70_patch/CMS_Bootstrap_P7_0_StabilizationRefactor.html,68,window,"window.showSuccess = function(msg, title){ cmsNotify('success', title || 'Success', msg || 'Action completed successfully.'); };"

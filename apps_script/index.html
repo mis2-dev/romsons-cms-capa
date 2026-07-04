@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<title>ROMSONS – Complaint / CAPA System</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<style>
+:root{
+  --brand:#0f766e;
+  --brand-2:#115e59;
+  --line:#d5e5e4;
+  --success:#166534;
+  --soft:#f8fbfb;
+  --primary:#00796b;
+  --primary-dark:#04584f;
+  --accent:#11b8a5;
+  --accent-soft:#dff7f2;
+  --bg:#eef5f4;
+  --bg-deep:#d8e9e6;
+  --card:#ffffff;
+  --focus:#effcf8;
+  --border:#b9dfd8;
+  --muted:#5f6f73;
+  --danger:#c62828;
+  --text:#17343a;
+  --shadow:0 18px 45px rgba(8,48,58,.10);
+}
+
+*{box-sizing:border-box}
+html,body{max-width:100%; overflow-x:hidden;}
+body{
+  font-family:Inter,Arial,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(17,184,165,.14), transparent 26%),
+    radial-gradient(circle at top right, rgba(0,121,107,.12), transparent 22%),
+    linear-gradient(160deg, #f6fbfa 0%, var(--bg) 46%, var(--bg-deep) 100%);
+  margin:0;
+  padding:24px;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size:28px 28px;
+  mask-image:linear-gradient(to bottom, rgba(0,0,0,.35), transparent 70%);
+}
+#loginBox{
+  max-width:420px;
+  margin:82px auto;
+  background:rgba(255,255,255,.95);
+  padding:30px;
+  border-radius:22px;
+  border:1px solid rgba(185,223,216,.9);
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(10px);
+}
+.app-shell{display:none}
+.topbar{background:linear-gradient(135deg,var(--brand),var(--brand-2));border-radius:28px;padding:22px 24px;color:#fff;box-shadow:var(--shadow);display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.brand-title{font-size:21px;font-weight:800;letter-spacing:.3px;margin:0}
+.brand-sub{opacity:.92;font-size:14px;margin-top:2px}
+.top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.user-pill,.ghost-btn,.solid-btn{border-radius:18px;padding:11px 16px;font-weight:700;border:1px solid rgba(255,255,255,.18)}
+.user-pill{background:rgba(255,255,255,.94);color:var(--brand-2);min-width:235px;text-align:center;box-shadow:0 10px 30px rgba(8,40,38,.14)}
+.fetch-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.fetch-btn{border:none;border-radius:12px;padding:0 16px;min-height:42px;font-weight:800;font-size:13px;letter-spacing:.2px;background:linear-gradient(135deg,#0f766e,#0b5f58);color:#fff;box-shadow:0 10px 20px rgba(15,118,110,.16);align-self:end}
+.fetch-btn:hover{transform:translateY(-1px);filter:brightness(1.03)}
+.check-tile{display:flex;align-items:center;gap:10px;min-height:48px;border:1px solid #cfe0df;border-radius:16px;padding:12px 14px;background:#fff}
+.batch-input-group{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+.attachment-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width: 991px){.attachment-row{grid-template-columns:1fr}}
+.ghost-btn{background:rgba(255,255,255,.14);color:#fff}
+.solid-btn{background:#fff;color:var(--brand-2)}
+.clock{font-weight:700;white-space:nowrap}
+.login-brand{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.brand-mark{width:54px;height:54px;border-radius:16px;background:linear-gradient(145deg,var(--accent),var(--primary-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;box-shadow:0 14px 26px rgba(0,121,107,.25)}
+.brand-copy h4{margin:0;font-weight:800;color:var(--primary-dark)}
+.brand-copy p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.container-card{max-width:1180px;margin:auto;background:rgba(255,255,255,.88);border-radius:28px;border:1px solid rgba(185,223,216,.9);box-shadow:var(--shadow);overflow:hidden;display:none;backdrop-filter:blur(10px)}
+.header{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:26px 28px;color:#fff;background:radial-gradient(circle at 15% 20%, rgba(255,255,255,.16), transparent 22%),radial-gradient(circle at 82% 18%, rgba(255,255,255,.12), transparent 18%),linear-gradient(135deg, #063d3c 0%, #0a6d68 44%, #12a799 100%)}
+.header::after{content:"";position:absolute;right:-80px;top:-110px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle, rgba(255,255,255,.15) 0%, rgba(255,255,255,0) 68%)}
+.header-main{position:relative;z-index:1;max-width:720px}
+.header-tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:12px}
+.header h1{font-size:26px;margin:0 0 6px 0;font-weight:800;letter-spacing:.3px}
+.header .meta{font-size:14px;opacity:.95;max-width:620px;line-height:1.5}
+.header-actions{position:relative;z-index:1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.content{padding:24px}
+.hero-panel{position:relative;overflow:hidden;margin-bottom:18px;background:linear-gradient(135deg, rgba(7,95,90,.97), rgba(13,150,140,.92));color:#fff;border-radius:24px;padding:24px;box-shadow:0 14px 30px rgba(9,94,90,.18)}
+.hero-panel::before{content:"";position:absolute;right:-35px;top:-32px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle, rgba(255,255,255,.18), transparent 65%)}
+.hero-grid{display:grid;grid-template-columns:2fr 1fr;gap:18px;position:relative;z-index:1}
+.hero-title{font-size:24px;font-weight:800;line-height:1.2;margin:0 0 10px}
+.hero-text{margin:0;color:rgba(255,255,255,.9);max-width:680px;line-height:1.6}
+.hero-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat-chip{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.16);border-radius:18px;padding:14px 16px}
+.stat-chip strong{display:block;font-size:18px}
+.stat-chip span{font-size:12px;opacity:.9}
+.section-card{background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,252,251,.96));border:1px solid #dceceb;border-radius:22px;padding:18px 18px 20px;box-shadow:0 10px 24px rgba(7,58,66,.06);margin-bottom:16px}
+.section-title{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.section-icon{width:38px;height:38px;border-radius:12px;background:var(--accent-soft);color:var(--primary-dark);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800}
+.section-title h3{margin:0;font-size:16px;font-weight:800;color:var(--primary-dark)}
+.section-title p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+label{font-size:12px;font-weight:700;color:#23444a;text-transform:uppercase;letter-spacing:.28px;margin-bottom:6px;display:block}
+.form-control,.form-select{border-radius:14px;border:1px solid #cfe3de;background:#fbfefd;min-height:46px;padding:10px 14px;color:var(--text)}
+.form-check-input{width:20px;height:20px;border-color:#9dcac2}
+.form-check-input:checked{background-color:var(--primary);border-color:var(--primary)}
+.form-check-label{font-size:14px;font-weight:700;color:var(--text);text-transform:none;letter-spacing:0;margin:0}
+.form-control:focus,.form-select:focus{background:var(--focus);border-color:var(--accent);box-shadow:0 0 0 4px rgba(17,184,165,.12)}
+.separator{display:none}
+.form-grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media (min-width: 992px){.form-grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }}
+.form-field{min-width:0;}
+.span-2{grid-column: span 1;}
+.span-3{grid-column: span 1;}
+@media (min-width: 992px){.span-2{grid-column: span 2;}.span-3{grid-column: span 3;}}
+.form-control,.form-select,textarea{width:100%; min-width:0;}
+input[type="file"]{max-width:100%;}
+.note-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#f3fbf9;border:1px solid #d6ece7;color:var(--primary-dark);font-size:12px;font-weight:700}
+.actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
+.btn-primary-custom,.btn-outline,.btn-soft{border:none;padding:10px 16px;border-radius:12px;font-weight:800;transition:.2s ease}
+.btn-primary-custom{background:linear-gradient(135deg,var(--primary),#0d9287);color:#fff;box-shadow:0 12px 22px rgba(0,121,107,.18)}
+.btn-primary-custom:hover{transform:translateY(-1px);filter:brightness(1.02)}
+.btn-outline{background:#fff;border:1px solid #d7e7e4;color:var(--muted)}
+.btn-soft{background:var(--accent-soft);color:var(--primary-dark)}
+.track-card{
+  background:#fff;
+  border:1px solid #d7e7e4;
+  border-radius:18px;
+  padding:16px;
+  box-shadow:0 8px 22px rgba(7,58,66,.06);
+}
+.track-card span{
+  display:block;
+  color:#5f6f73;
+  font-size:13px;
+  font-weight:700;
+}
+.track-card b{
+  font-size:28px;
+  color:#0f766e;
+}
+.status-badge{
+  display:inline-flex;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#dff7f2;
+  color:#04584f;
+  font-weight:800;
+  font-size:12px;
+}
+.history-item{
+  border-left:4px solid #0f766e;
+  background:#f8fbfb;
+  padding:10px 12px;
+  border-radius:10px;
+  margin-bottom:8px;
+}
+.history-item small{
+  color:#5f6f73;
+}
+.score-card{
+  padding:18px;
+  border-radius:16px;
+  color:#fff;
+  box-shadow:0 10px 25px rgba(0,0,0,.08);
+}
+
+.score-card span{
+  font-size:13px;
+  opacity:.9;
+}
+
+.score-card h2{
+  margin:5px 0 0;
+  font-size:32px;
+  font-weight:800;
+}
+.resizable-table th {
+  position: relative;
+}
+
+.resizable-table th::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.score-card.total{ background:linear-gradient(135deg,#0f766e,#0d9488);}
+.score-card.open{ background:linear-gradient(135deg,#0284c7,#0ea5e9);}
+.score-card.closed{ background:linear-gradient(135deg,#16a34a,#22c55e);}
+.score-card.overdue{ background:linear-gradient(135deg,#dc2626,#ef4444);}
+#loader{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(238,245,244,.75);backdrop-filter: blur(6px);z-index:9999}
+.loader-card{width:min(360px, 92vw);background:#fff;padding:22px;border-radius:22px;text-align:center;box-shadow:var(--shadow);border:1px solid #dceceb}
+.spinner{width:64px;height:64px;border-radius:50%;border:6px solid #eaf3f1;border-top:6px solid var(--primary);animation:spin 1s linear infinite;margin:auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (max-width: 991px){body{padding:14px}.header{padding:22px 18px;flex-direction:column}.header-actions{justify-content:flex-start}.content{padding:16px}.hero-grid{grid-template-columns:1fr}.hero-title{font-size:20px}}
+
+/* ======= PAGE + TRACKING FIXES ======= */
+.app-page{display:none; max-width:1180px; margin:0 auto;}
+.app-page.active{display:block;}
+.page-card{background:rgba(255,255,255,.9);border:1px solid rgba(185,223,216,.9);border-radius:24px;padding:18px;box-shadow:var(--shadow);backdrop-filter:blur(10px);}
+.table-toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.table-toolbar .filters{display:flex;gap:8px;flex-wrap:wrap;min-width:min(100%,520px)}
+.table-toolbar .filters input,.table-toolbar .filters select{max-width:260px}
+.cms-table{background:#fff;border-radius:16px;overflow:hidden}
+.cms-table th{background:#effcf8;color:#04584f;font-size:12px;text-transform:uppercase;white-space:nowrap;position:sticky;top:0;z-index:1}
+.cms-table td{vertical-align:middle;font-size:13px}
+.status-badge.active-status{background:#dcfce7;color:#166534}
+.status-badge.pending-status{background:#f1f5f9;color:#64748b}
+.status-badge.closed-status{background:#dcfce7;color:#166534}
+.status-badge.rejected-status{background:#fee2e2;color:#991b1b}
+
+.tracking-card{background:linear-gradient(180deg,#fff,#fbfefd);border:1px solid #dceceb;border-radius:18px;padding:16px;box-shadow:0 10px 24px rgba(7,58,66,.06)}
+.tracking-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.tracking-title{font-size:16px;font-weight:900;color:#0f766e}
+.tracking-sub{font-size:12px;color:#64748b;font-weight:700}
+.stage-progress{display:flex;justify-content:space-between;position:relative;gap:10px;margin:18px 8px 24px;overflow-x:auto;padding-bottom:8px}
+.stage-progress:before{content:"";position:absolute;top:19px;left:30px;right:30px;height:3px;background:#cbd5e1;z-index:0}
+.stage-box{position:relative;z-index:1;text-align:center;min-width:112px;flex:1}
+.stage-circle{width:38px;height:38px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-weight:900;border:2px solid #cbd5e1;background:#f8fafc;color:#94a3b8}
+.stage-box.done .stage-circle{background:#16a34a;border-color:#16a34a;color:#fff}
+.stage-box.active .stage-circle{background:#fff;border-color:#0f766e;color:#0f766e;box-shadow:0 0 0 6px rgba(15,118,110,.12)}
+.stage-name{font-size:11px;font-weight:800;color:#334155;line-height:1.2}
+.stage-box.pending .stage-name{color:#94a3b8}
+.routing-title{font-weight:900;color:#dc2626;margin:8px 0 6px}
+.tracking-log-list{border-top:1px dashed #d8e5e3}
+.log-row{display:grid;grid-template-columns:145px 32px 1fr;gap:12px;align-items:flex-start;border-bottom:1px solid #e2e8f0;padding:12px 0}
+.log-date{font-size:12px;font-weight:900;color:#334155}
+.log-time{font-size:11px;color:#64748b;margin-top:3px}
+.log-dot{width:22px;height:22px;border-radius:50%;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-weight:900;margin-top:2px}
+.log-stage{font-size:13px;font-weight:900;color:#334155}
+.log-remarks{font-size:12px;color:#64748b;margin-top:3px}
+@media(max-width:768px){
+  .table-toolbar{align-items:stretch}
+  .table-toolbar .filters{width:100%}
+  .table-toolbar .filters input,.table-toolbar .filters select{max-width:none;flex:1}
+  .log-row{grid-template-columns:88px 28px 1fr}
+  .stage-box{min-width:102px}
+}
+
+
+/* ===== P2 CONTROLLED LIFECYCLE ACTION CENTER ===== */
+.lifecycle-panel{background:linear-gradient(135deg,#f7fffd,#eef9f7);border:1px solid #cfe8e3;border-radius:18px;padding:16px;margin-bottom:18px}
+.lifecycle-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}
+.lifecycle-head h6{margin:0;font-weight:900;color:#075e57}
+.lifecycle-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px}
+.lifecycle-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #d9ebe7;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;color:#355f5a}
+.lifecycle-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.lifecycle-action{border:0;border-radius:12px;padding:10px 14px;font-weight:850;background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;box-shadow:0 8px 18px rgba(15,118,110,.16)}
+.lifecycle-action.warning{background:linear-gradient(135deg,#d97706,#f59e0b)}
+.lifecycle-action.danger{background:linear-gradient(135deg,#b91c1c,#dc2626)}
+.lifecycle-action.admin{background:linear-gradient(135deg,#4c1d95,#7c3aed)}
+.lifecycle-empty{padding:12px;border:1px dashed #bfded8;border-radius:12px;background:#fff;color:#64748b;font-size:13px}
+.lifecycle-note{font-size:12px;color:#64748b;margin-top:8px}
+
+
+/* ===== P3 MORE INFO REQUEST MODULE ===== */
+.info-panel{background:linear-gradient(180deg,#fff,#f8fbff);border:1px solid #d9e6f2;border-radius:18px;padding:16px;margin-bottom:18px}
+.info-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.info-head h6{margin:0;font-weight:900;color:#174a6e}.info-counter{font-size:12px;font-weight:800;background:#e8f3ff;color:#174a6e;border-radius:999px;padding:6px 10px}
+.info-request-card{border:1px solid #dce7ef;border-radius:15px;background:#fff;padding:14px;margin-bottom:12px}.info-request-card.active{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.10)}
+.info-request-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.info-status{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;background:#eef2f7;color:#475569}.info-status.open,.info-status.reopened{background:#fff3cd;color:#92400e}.info-status.sales-responded{background:#dbeafe;color:#1d4ed8}.info-status.closed{background:#dcfce7;color:#166534}
+.info-thread{margin-top:12px;border-top:1px dashed #dce7ef;padding-top:10px}.info-msg{border-left:3px solid #0f766e;background:#f8fbfb;padding:9px 11px;border-radius:9px;margin-bottom:8px}.info-msg.sales{border-left-color:#2563eb;background:#f5f8ff}.info-msg small{color:#64748b}.info-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.info-form{background:#f8fbff;border:1px dashed #bcd2e4;border-radius:14px;padding:12px;margin-top:12px}.info-form textarea{min-height:82px}.info-link{font-size:12px;font-weight:800}.info-empty{padding:12px;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;background:#fff}
+
+
+/* ===== P4 Investigation + CAPA Workspace ===== */
+.p4-panel{background:#fff;border:1px solid #d9e8e5;border-radius:18px;padding:16px;margin-bottom:18px;box-shadow:0 8px 22px rgba(7,58,66,.05)}
+.p4-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}.p4-head h6{margin:0;font-weight:900;color:#075e57}.p4-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.p4-grid .full{grid-column:1/-1}.p4-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.p4-file{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border-radius:10px;background:#effcf8;color:#075e57;font-weight:800;text-decoration:none}.p4-alert{padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:13px;font-weight:700}.p4-readonly{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}.p4-readonly b{color:#0f766e}@media(max-width:768px){.p4-grid{grid-template-columns:1fr}}
+
+
+/* ===== P5 Financial Year Dashboard ===== */
+.fy-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:#f8fffd;border:1px solid #d9eee9;border-radius:18px}
+.fy-select-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fy-select-wrap label{margin:0;text-transform:none;letter-spacing:0;font-size:13px;color:#075e57}
+.fy-select{min-width:150px;max-width:190px}
+.fy-analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.fy-analytics-card{background:#fff;border:1px solid #dceceb;border-radius:18px;padding:14px;box-shadow:0 8px 18px rgba(7,58,66,.04)}
+.fy-analytics-card h6{font-weight:900;color:#075e57;margin-bottom:10px}
+.fy-bar-row{display:grid;grid-template-columns:150px minmax(100px,1fr) 34px;gap:10px;align-items:center;margin:8px 0}
+.fy-bar-label{font-size:12px;font-weight:800;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fy-bar-track{height:10px;background:#edf5f4;border-radius:999px;overflow:hidden}
+.fy-bar-track span{display:block;height:100%;background:linear-gradient(135deg,#0f766e,#11b8a5);border-radius:999px}
+.fy-bar-count{font-size:12px;font-weight:900;color:#0f766e;text-align:right}
+@media(max-width:768px){.fy-analytics-grid{grid-template-columns:1fr}.fy-bar-row{grid-template-columns:110px 1fr 28px}}
+
+
+
+/* ===== P5.1 DETAIL MODAL POLISH ===== */
+#cmsDetailModal .modal-dialog{max-width:980px;}
+#cmsDetailModal .modal-content{border:0;border-radius:20px!important;overflow:hidden;box-shadow:0 26px 80px rgba(15,23,42,.30)}
+#cmsDetailModal .modal-header{background:#fff;border-bottom:1px solid #dbe7e5;padding:14px 18px;position:sticky;top:0;z-index:5}
+#cmsDetailModal .modal-title{font-weight:900;color:#0b514c;font-size:16px}
+#cmsDetailModal .modal-body{background:#f7fbfa;padding:14px;max-height:82vh;}
+.cms-detail-hero{border-radius:18px;padding:16px;display:flex;justify-content:space-between;gap:16px;align-items:stretch;background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;box-shadow:0 14px 30px rgba(15,118,110,.18)}
+.cms-detail-hero.review{background:linear-gradient(135deg,#0f766e,#0ea5a0)}
+.cms-detail-hero.investigation{background:linear-gradient(135deg,#075985,#0ea5e9)}
+.cms-detail-hero.info{background:linear-gradient(135deg,#92400e,#f59e0b)}
+.cms-detail-hero.capa{background:linear-gradient(135deg,#4c1d95,#7c3aed)}
+.cms-detail-hero.closed{background:linear-gradient(135deg,#166534,#22c55e)}
+.detail-kicker{font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:900;opacity:.82}.cms-detail-hero h4{margin:3px 0 12px;font-size:22px;font-weight:950}.cms-detail-main{flex:1}.detail-hero-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.detail-hero-grid div{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.20);border-radius:12px;padding:10px}.detail-hero-grid span{display:block;font-size:10px;text-transform:uppercase;font-weight:900;opacity:.78}.detail-hero-grid b{display:block;font-size:13px;margin-top:4px;line-height:1.25}.cms-detail-status{min-width:220px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);border-radius:16px;padding:14px}.stage-pill.big{display:inline-flex;border-radius:999px;background:#fff;color:#0f766e;padding:9px 12px;font-weight:950;font-size:13px}.quick-link-row{display:flex;gap:8px;flex-wrap:wrap;padding:12px 2px 0}.quick-link-row .btn-soft{font-size:12px;text-decoration:none}
+.lifecycle-panel,.info-panel,.p4-panel,.tracking-card{border-radius:18px!important;background:#fff!important;box-shadow:0 8px 22px rgba(7,58,66,.05)!important;margin-bottom:12px!important}.lifecycle-panel{background:linear-gradient(180deg,#effcf8,#fff)!important}.lifecycle-actions .lifecycle-empty{width:100%}.lifecycle-chip{background:#fff!important}.request-timeline{display:grid;gap:12px}.info-form.polished{background:linear-gradient(180deg,#f8fbff,#fff);border:1px dashed #bcd2e4}.qa-sales-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.qa-sales-grid>div{border:1px solid #e2e8f0;background:#f8fafc;border-radius:12px;padding:10px}.mini-label{font-size:10px;text-transform:uppercase;font-weight:950;color:#64748b;margin-bottom:4px}.info-thread{display:grid;gap:8px}.info-msg{font-size:12px}.info-link{display:inline-flex;margin-top:6px;color:#0f766e;text-decoration:underline;font-weight:900}.workspace-section{border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:12px}.section-mini-title{font-size:13px;font-weight:950;color:#075e57;margin-bottom:10px}.capa-version-card{border:1px solid #d9e8e5;background:#f8fbfb;border-radius:14px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.revision-note{width:100%;margin-top:8px;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;padding:8px;border-radius:10px}.sales-review-box{border:1px dashed #cbd5e1;border-radius:14px;padding:12px;margin-top:12px;background:#fbfdff}.tracking-card{overflow:hidden}.stage-progress{padding-top:6px}.stage-box{min-width:105px}.tracking-log-list{max-height:280px;overflow:auto}.history-item{background:#fff;border:1px solid #e2e8f0;border-left:4px solid #0f766e}.p4-file{white-space:nowrap}
+@media(max-width:768px){#cmsDetailModal .modal-dialog{margin:0;max-width:none;height:100%;}.cms-detail-hero{flex-direction:column}.cms-detail-status{min-width:0}.detail-hero-grid,.qa-sales-grid{grid-template-columns:1fr}.quick-link-row .btn-soft{flex:1;text-align:center}.p4-grid{grid-template-columns:1fr!important}}
+
+
+/* ===== P5.2 MORE INFO ALERTS ===== */
+.action-alert-panel{background:linear-gradient(180deg,#ffffff,#f8fffd);border:1px solid #cfe8e3;border-radius:18px;padding:14px;margin-bottom:14px;box-shadow:0 8px 20px rgba(7,58,66,.05)}
+.alert-panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.alert-panel-head b{display:block;color:#075e57;font-size:15px}.alert-panel-head span{display:block;color:#64748b;font-size:12px}
+.action-alert{display:grid;gap:3px;border-left:4px solid #0f766e;background:#f0fdfa;border-radius:12px;padding:10px 12px;margin-bottom:8px}.action-alert b{color:#0f3f3b}.action-alert span{font-size:12px;color:#475569}.action-alert em{font-size:11px;color:#64748b;font-style:normal}.action-alert.warning{border-left-color:#f59e0b;background:#fffbeb}.action-alert.success{border-left-color:#22c55e;background:#f0fdf4}.action-alert.danger{border-left-color:#ef4444;background:#fef2f2}.action-alert.info{border-left-color:#0ea5e9;background:#f0f9ff}.action-alert.ok{border-left-color:#14b8a6;background:#f0fdfa}
+.notification-feed{display:grid;gap:7px;margin-top:8px}.notification-row{border:1px solid #e2e8f0;border-radius:12px;padding:9px 11px;background:#fff}.notification-row b{display:block;color:#334155;font-size:12px}.notification-row span{display:block;color:#64748b;font-size:12px;margin-top:2px}.notification-row small{color:#94a3b8;font-size:11px}
+.info-flow-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #d8e9e6;border-radius:15px;padding:12px;background:#f8fffd;margin-bottom:12px}.info-flow-summary b{display:block;color:#0f3f3b}.info-flow-summary span{display:block;color:#64748b;font-size:12px;margin-top:3px}.info-flow-summary.active{border-color:#f59e0b;background:#fffbeb}.info-flow-summary.review{border-color:#22c55e;background:#f0fdf4}.info-flow-summary.clear{border-color:#14b8a6;background:#f0fdfa}.info-progress{min-width:76px;text-align:center;background:#fff;border:1px solid #d8e9e6;border-radius:13px;padding:8px}.info-progress b{font-size:20px}.info-progress small{display:block;color:#64748b;font-size:11px}.info-help{padding:9px 11px;border-radius:12px;background:#f8fafc;border:1px dashed #cbd5e1;color:#64748b;font-size:12px;margin-bottom:10px}.info-help.warn{background:#fffbeb;border-color:#f59e0b;color:#92400e}.response-box{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:11px;margin-top:8px}
+
+
+
+/* ===== P5.4 FULL SCREEN COMPLAINT WORKSPACE ===== */
+#workspacePage{max-width:1440px;margin:0 auto;}
+.workspace-shell{background:rgba(255,255,255,.94);border:1px solid rgba(185,223,216,.9);border-radius:26px;box-shadow:var(--shadow);overflow:hidden;backdrop-filter:blur(10px);}
+.workspace-topbar{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,#063d3c,#0f766e);color:#fff;padding:16px 18px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.workspace-topbar h3{margin:0;font-size:20px;font-weight:900}.workspace-topbar .sub{font-size:12px;opacity:.9}.workspace-actions{display:flex;gap:8px;flex-wrap:wrap}.workspace-actions button,.workspace-actions a{border:0;border-radius:12px;padding:9px 12px;font-weight:900;background:rgba(255,255,255,.15);color:#fff;text-decoration:none}.workspace-actions .solid{background:#fff;color:#0f766e}
+.workspace-body{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;padding:16px;background:#f7fbfa}.workspace-main{min-width:0}.workspace-side{min-width:0;position:sticky;top:90px;align-self:start;max-height:calc(100vh - 110px);overflow:auto}.workspace-card{background:#fff;border:1px solid #dbeceb;border-radius:18px;padding:14px;margin-bottom:14px;box-shadow:0 8px 20px rgba(7,58,66,.04)}.workspace-card h6{margin:0 0 8px;color:#075e57;font-weight:950}.workspace-sticky-tracking{position:sticky;top:84px;z-index:10;background:#fff;border:1px solid #cde5df;border-radius:18px;padding:12px;margin-bottom:14px;box-shadow:0 10px 24px rgba(15,118,110,.08)}
+.request-mini-timeline{display:flex;gap:10px;overflow-x:auto;padding:10px 4px}.request-node{min-width:128px;border:1px solid #dbe7e5;border-radius:14px;padding:10px;background:#f8fafc}.request-node b{display:block;font-size:12px}.request-node span{font-size:11px;color:#64748b}.request-node.open,.request-node.reopened{background:#fff7ed;border-color:#fdba74}.request-node.sales-responded{background:#eff6ff;border-color:#93c5fd}.request-node.closed{background:#f0fdf4;border-color:#86efac}.request-dot{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:6px;background:#cbd5e1;color:#fff;font-size:12px;font-weight:900}.request-node.open .request-dot,.request-node.reopened .request-dot{background:#f59e0b}.request-node.sales-responded .request-dot{background:#2563eb}.request-node.closed .request-dot{background:#16a34a}
+.case-chat-panel{background:#fff;border:1px solid #dbeceb;border-radius:18px;padding:14px;box-shadow:0 8px 22px rgba(7,58,66,.05)}.case-chat-panel h6{font-weight:950;color:#174a6e;margin-bottom:4px}.chat-empty{border:1px dashed #cbd5e1;border-radius:12px;padding:12px;color:#64748b;background:#f8fafc}.chat-msg{border-left:3px solid #0f766e;background:#f8fbfb;padding:10px;border-radius:10px;margin-bottom:8px}.chat-msg.sales{border-left-color:#2563eb;background:#f5f8ff}.chat-msg small{display:block;color:#64748b;margin-bottom:4px}
+.customer-suggest-note{font-size:11px;color:#64748b;margin-top:4px}.fetch-btn[disabled]{opacity:.65;cursor:not-allowed}
+@media(max-width:1024px){.workspace-body{grid-template-columns:1fr}.workspace-side{position:static;max-height:none}.workspace-sticky-tracking{position:static}.workspace-topbar{position:static}}
+
+</style>
+</head>
+
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginBox">
+  <div class="login-brand">
+    <div class="brand-mark">R</div>
+    <div class="brand-copy">
+      <h4>Romsons CMS</h4>
+      <p>Complaint Management System · Secure access for quality workflow</p>
+    </div>
+  </div>
+  <input id="emailField" class="form-control mb-2" placeholder="Email">
+  <input id="passwordField" type="password" class="form-control mb-3" placeholder="Password">
+  <button id="cmsLoginBtn" type="button" class="btn-primary-custom w-100" onclick="window.cmsLoginNow(event)">Login to CMS</button>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="formPage" class="app-page">
+
+<button class="btn-outline mb-3" onclick="showPage('dashboardPage')">⬅ Back to Dashboard</button>
+
+<div class="container-card" id="app">
+
+  <div class="header">
+    <div class="header-main">
+      <div class="header-tag">Quality Assurance · Complaint Management</div>
+      <h1>ROMSONS GROUP PRIVATE LIMITED</h1>
+      <div class="meta">Medical-device complaint intake form designed for faster capture, cleaner validation, and professional CAPA registration.</div>
+    </div>
+    <div class="header-actions">
+      <div class="user-pill" id="userPill">User</div>
+      <button class="btn-outline" onclick="refreshData()">Refresh</button>
+      <button class="btn-outline" onclick="logout()">Logout</button>
+      <div id="dt" class="note-badge"></div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- <div class="hero-panel">
+      <div class="hero-grid">
+        <div>
+          <div class="hero-title">Complaint Management System</div>
+          <p class="hero-text">Capture customer complaints, register CAPA references, and keep every case aligned with Romsons quality standards through a cleaner and more premium interface.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-chip"><strong>QA</strong><span>Quality assurance workflow</span></div>
+          <div class="stat-chip"><strong>CAPA</strong><span>Complaint to corrective action</span></div>
+          <div class="stat-chip"><strong>Batch</strong><span>Traceability focused intake</span></div>
+          <div class="stat-chip"><strong>Media</strong><span>Evidence-ready submission</span></div>
+        </div>
+      </div>
+    </div> -->
+
+    <div class="section-card">
+      <div class="section-title">
+        <div class="section-icon">1</div>
+        <div>
+          <h3>Complaint Basics</h3>
+          <p>Register the complaint date, batch traceability, and primary product details.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+      <div class="form-field">
+        <label>Complaint Date *</label>
+        <input id="complaintDate" type="date" class="form-control">
+      </div>
+
+      <div class="form-field">
+        <label>Batch No *</label>
+        <div class="batch-input-group">
+          <input id="batchNo" class="form-control" >
+          <button type="button" class="fetch-btn" onclick="fetchBatch()">Fetch</button>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label>Item Name *</label>
+        <select id="itemName" class="form-select"></select>
+        <input id="itemNameManual" class="form-control d-none" placeholder="Enter Item Name manually">
+      </div>
+
+      <div class="form-field">
+        <label>Severity *</label>
+        <select id="complaintType" class="form-select">
+          <option>High</option>
+          <option>Medium</option>
+          <option>Low</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label>Qty Affected</label>
+        <input id="qtyAffected" class="form-control" inputmode="decimal" placeholder="Enter affected quantity">
+      </div>
+
+      <div class="form-field">
+        <label>Complaint Sample Status</label>
+        <div class="form-control d-flex align-items-center">
+          <div class="form-check m-0">
+            <input class="form-check-input" type="checkbox" id="sampleAvailable">
+            <label class="form-check-label ms-2" for="sampleAvailable">Is Complaint Sample Available</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+
+    <div class="section-card">
+      <div class="section-title">
+        <div class="section-icon">2</div>
+        <div>
+          <h3>Issue Classification</h3>
+          <p>Capture issue category, short description, and who received the complaint.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+      <div class="form-field">
+        <label>Issue Category *</label>
+        <select id="issuesDropdown" class="form-select">
+          <option value="">Select</option>
+          <option>Packing</option>
+          <option>Performance</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label>Short Explain (max 45)*</label>
+        <input id="subcategories" maxlength="45" class="form-control">
+      </div>
+
+      <div class="form-field">
+        <label>Complaint Received Through *</label>
+        <input id="complainerName" class="form-control">
+      </div>
+    </div>
+    </div>
+
+
+    <div class="section-card">
+      <div class="section-title">
+        <div class="section-icon">3</div>
+        <div>
+          <h3>Customer Information</h3>
+          <p>Keep customer identity and location accurate for complaint follow-up.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+      <div class="form-field">
+        <label>Type of Customer *</label>
+        <select id="customerType" class="form-select">
+          <option value="">Select</option>
+          <option>Hospital</option>
+          <option>Distributor</option>
+          <option>Retailer</option>
+          <option>Customer</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label>Customer Name *</label>
+        <input id="location" class="form-control" placeholder="Type customer / hospital name">
+        <div id="placesHint" class="text-muted small mt-1">Google Places autofill is active when API key is configured. Manual entry remains available.</div>
+      </div>
+
+      <div class="form-field">
+        <label>Pincode *</label>
+        <input id="pincode" class="form-control" inputmode="numeric" maxlength="6" placeholder="e.g. 110001" onblur="fetchPincodeDetails()">
+      </div>
+
+      <div class="form-field span-2">
+        <label>Customer Address *</label>
+        <input id="address" class="form-control">
+      </div>
+
+      <div class="form-field">
+        <label>City *</label>
+        <input id="city" class="form-control">
+      </div>
+
+      <div class="form-field">
+        <label>State *</label>
+        <input id="state" class="form-control">
+      </div>
+    </div>
+    </div>
+
+
+    <div class="section-card">
+      <div class="section-title">
+        <div class="section-icon">4</div>
+        <div>
+          <h3>Complaint Details</h3>
+          <p>Document how the complaint was received and the exact observation reported.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+      <div class="form-field">
+        <label>Mode of Complaint *</label>
+        <select id="complaintMode" class="form-select">
+          <option value="">Select</option>
+          <option>Email</option>
+          <option>Phone</option>
+          <option>Online</option>
+          <option>Via Sales Person</option>
+          <option>Social Media</option>
+        </select>
+      </div>
+
+      <div class="form-field span-2">
+        <label>Description *</label>
+        <textarea id="description" class="form-control" rows="3" placeholder="Describe the complaint, issue, and observation clearly"></textarea>
+      </div>
+    </div>
+    </div>
+
+
+    <div class="section-card">
+      <div class="section-title">
+        <div class="section-icon">5</div>
+        <div>
+          <h3>Evidence & Attachments</h3>
+          <p>Upload photographs or videos that help the QA team validate the complaint faster.</p>
+        </div>
+      </div>
+      <div class="attachment-row">
+      <div class="form-field">
+        <label>Attach Images (optional)</label>
+        <input type="file" id="imageFiles" class="form-control" multiple accept="image/*">
+      </div>
+
+      <div class="form-field">
+        <label>Attach Videos (optional)</label>
+        <input type="file" id="videoFiles" class="form-control" multiple accept="video/*">
+      </div>
+    </div>
+    <div class="mt-3">
+      <span class="note-badge">Attach clear evidence to speed up validation and CAPA processing.</span>
+    </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions mt-3">
+      <button class="btn-outline" onclick="detailsPreview()">Details Preview</button>
+      <button class="btn-outline" onclick="clearForm()">Clear</button>
+      <button class="btn-primary-custom" onclick="submitComplaintUI()">Submit</button>
+    </div>
+
+  </div>
+</div>
+</div>
+
+
+<div id="listPage" class="app-page">
+
+  <div class="page-card">
+    <div class="table-toolbar">
+      <div>
+        <h3 class="mb-1">📋 Complaint List</h3>
+        <div class="text-muted small">Search, open detail, update CAPA stage, and track each complaint lifecycle.</div>
+      </div>
+      <div>
+        <button class="btn-primary-custom" onclick="showPage('formPage')">➕ New Complaint</button>
+        <button class="btn-outline ms-2" onclick="showPage('dashboardPage')">⬅ Dashboard</button>
+      </div>
+    </div>
+
+    <div class="table-toolbar">
+      <div class="filters">
+        <select id="listFyFilter" class="form-select" onchange="changeFinancialYear(this.value)"></select>
+        <input id="searchBox" class="form-control" placeholder="Search complaint, customer, product..." oninput="filterCmsRows()">
+        <select id="statusFilter" class="form-select" onchange="filterCmsRows()">
+          <option value="">All Status</option>
+          <option>Complaint Booked</option>
+          <option>Under Review</option>
+          <option>More Info Requested</option>
+          <option>Under Investigation</option>
+          <option>Investigation Complete</option>
+          <option>CAPA Uploaded</option>
+          <option>CAPA Verified</option>
+          <option>Case Closed</option>
+        </select>
+      </div>
+      <button class="btn-soft" onclick="loadCmsTrackingV2()">Refresh List</button>
+    </div>
+
+    <div class="table-responsive cms-table">
+      <table class="table table-bordered table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Complaint</th>
+            <th>Customer</th>
+            <th>Product / Batch</th>
+            <th>Severity</th>
+            <th>Status</th>
+            <th>Age</th>
+            <th style="width:160px;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="complaintTable">
+          <tr><td colspan="7" class="text-center text-muted py-3">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="dashboardPage" class="app-page">
+
+  <div class="section-card">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div>
+        <h3 class="mb-1">📊 CMS Dashboard</h3>
+        <div class="text-muted small">Complaint score board with CAPA lifecycle overview.</div>
+      </div>
+
+      <div>
+        <button class="btn-primary-custom" onclick="showPage('formPage')">➕ New Complaint</button>
+        <button class="btn-outline ms-2" onclick="showPage('listPage'); loadCmsTrackingV2()">📋 View Complaints</button>
+      </div>
+    </div>
+
+    <div class="fy-toolbar">
+      <div>
+        <b>Financial Year View</b>
+        <div class="text-muted small">Indian FY basis: 1 April to 31 March · filtered by Complaint Date</div>
+      </div>
+      <div class="fy-select-wrap">
+        <label for="fyFilter">Select FY</label>
+        <select id="fyFilter" class="form-select fy-select" onchange="changeFinancialYear(this.value)"></select>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="score-card total">
+          <span>Total</span>
+          <h2 id="cmsTotal">0</h2>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="score-card open">
+          <span>Open</span>
+          <h2 id="cmsOpen">0</h2>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="score-card closed">
+          <span>Closed</span>
+          <h2 id="cmsClosed">0</h2>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="score-card overdue">
+          <span>Overdue</span>
+          <h2 id="cmsOverdue">0</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="fy-analytics-grid">
+      <div class="fy-analytics-card">
+        <h6>Stage-wise Summary</h6>
+        <div id="stageAnalytics"><div class="text-muted small">Loading...</div></div>
+      </div>
+      <div class="fy-analytics-card">
+        <h6>Severity-wise Summary</h6>
+        <div id="severityAnalytics"><div class="text-muted small">Loading...</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-card">
+    <div class="spinner"></div>
+    <div class="mt-2 fw-bold">Processing…</div>
+  </div>
+</div>
+
+<!-- ============ NOTIFICATION MODAL (success / error / info) ============ -->
+<div class="modal fade" id="notifyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header">
+        <h5 class="modal-title" id="notifyTitle">Notification</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="notifyBody" style="white-space:pre-wrap;"></div>
+      </div>
+      <div class="modal-footer" id="notifyFooter">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PDF PREVIEW MODAL (A4 View) ============ -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header">
+        <h5 class="modal-title">Details Preview (PDF View)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body" style="background:#f4f6f8;">
+        <div id="previewA4"
+             style="background:#fff; width:min(210mm, 100%); margin:auto; padding:16mm;
+                    box-shadow:0 10px 30px rgba(0,0,0,.10); border-radius:8px;">
+          <div style="text-align:center; font-weight:800; font-size:16px;">QUALITY ASSURANCE DEPARTMENT</div>
+          <div style="text-align:center; font-weight:700; margin-top:4px;">
+            Corrective / Preventive Action Request Form
+          </div>
+
+          <div style="height:12px;"></div>
+
+          <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <tbody id="previewTable"></tbody>
+          </table>
+
+          <div style="height:10px;"></div>
+          <div style="font-size:12px; color:#6b7280;">
+            Note: This is a preview layout. Final PDF is generated after submission.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" onclick="printPreview()">Print</button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>window.CMS_UPDATE_COMPLAINT_NO = <?!= JSON.stringify(CMS_UPDATE_COMPLAINT_NO || "") ?>;</script>
+<script>window.CMS_GOOGLE_MAPS_API_KEY = <?!= JSON.stringify(CMS_GOOGLE_MAPS_API_KEY || "") ?>;</script>
+<?!= include("CMS_Bootstrap_P5_6_FastStageCAPA"); ?>
+<?!= include("CMS_Bootstrap_P6_3_WorkspaceChatFix"); ?>
+<?!= include("CMS_Bootstrap_P6_4_DashboardChatDataFix"); ?>
+<?!= include("CMS_Bootstrap_P6_5_UserAccessManagement"); ?>
+
+
+
+<div id="workspacePage" class="app-page">
+  <div class="workspace-shell simple-workspace fast-workspace">
+    <div class="workspace-topbar simple-topbar">
+      <div>
+        <h3>Complaint Workspace: <span id="detailTitle">—</span></h3>
+        <div class="sub">Fast mode · role stage update · More Info · CAPA upload/approval</div>
+      </div>
+      <div class="workspace-actions">
+        <button type="button" onclick="showPage('listPage')">← Back to List</button>
+        <button type="button" onclick="CURRENT_COMPLAINT && openCmsDetail(CURRENT_COMPLAINT.complaintNo)">Refresh Case</button>
+        <button type="button" class="solid" onclick="showPage('dashboardPage')">Dashboard</button>
+      </div>
+    </div>
+
+    <div class="fast-body">
+      <section id="detailBody" class="fast-case-full"></section>
+
+      <section class="fast-timeline-grid">
+        <div class="workspace-card compact-track">
+          <div class="tracking-top">
+            <div><div class="tracking-title">Complaint / CAPA Tracking</div><div class="tracking-sub" id="trackingSubTitle">Complaint No: —</div></div>
+          </div>
+          <div class="stage-progress" id="stageProgress"></div>
+        </div>
+        <div class="workspace-card">
+          <div class="tracking-top">
+            <div><div class="tracking-title">More Information Request Tracking</div><div class="tracking-sub">Request 1/2/3 · orange pending, blue sales responded, green closed</div></div>
+            <span class="info-counter" id="infoRequestCounter">0 / 3</span>
+          </div>
+          <div id="requestMiniTimeline" class="request-mini-timeline simple-mini"><div class="chat-empty">Loading request timeline...</div></div>
+        </div>
+      </section>
+
+      <section class="fast-action-grid">
+        <div class="workspace-card simple-next-card">
+          <h6>Complaint / CAPA Stage Updates</h6>
+          <div id="simpleNextAction"><div class="info-empty">Loading role based actions...</div></div>
+        </div>
+        <div class="workspace-card" id="infoRequestPanel">
+          <h6>More Information Request</h6>
+          <div class="text-muted small mb-2">Only written interaction module</div>
+          <div id="infoRequestContent"><div class="info-empty">Loading request actions...</div></div>
+        </div>
+      </section>
+
+      <section class="workspace-card" id="p4WorkspacePanel">
+        <div class="simple-section-head">
+          <div><h6>CAPA Document</h6><div class="text-muted small">Upload, view, approve, or request revision</div></div>
+        </div>
+        <div id="p4WorkspaceContent"><div class="info-empty">Loading CAPA document...</div></div>
+      </section>
+
+      <details class="workspace-card simple-details timeline-details">
+        <summary>Timeline / Audit History</summary>
+        <div class="tracking-top mt-3"><div><div class="tracking-title">Routing Steps</div><div class="tracking-sub">Loaded only when opened/refreshed</div></div></div>
+        <div class="tracking-log-list" id="trackingLogList"></div>
+        <h6 class="mt-3">Timeline History</h6>
+        <div id="historyBox"><div class="text-muted small">Open this section to review audit history.</div></div>
+      </details>
+
+      <aside class="workspace-card fast-side-chat">
+        <h6>Request Conversation</h6>
+        <div class="text-muted small mb-2">Visible when More Info Request is active/used</div>
+        <div id="workspaceChatPanel"><div class="chat-empty">No request conversation yet.</div></div>
+      </aside>
+
+      <div class="d-none">
+        <span id="lifecycleCurrentStage">—</span><span id="lifecycleStageOwner">—</span><span id="lifecycleCapaStatus">Not started</span>
+        <textarea id="lifecycleRemark"></textarea><div id="lifecycleActions"></div><div id="actionAlertList"></div><div id="notificationFeed"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

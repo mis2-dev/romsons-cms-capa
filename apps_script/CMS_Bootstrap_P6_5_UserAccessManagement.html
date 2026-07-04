@@ -1,0 +1,100 @@
+<!-- P6.5 User Access Management UI -->
+<style>
+.p65-access-btn{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#eef2ff;color:#3730a3;box-shadow:0 8px 18px rgba(55,48,163,.10)}
+.p65-access-modal{position:fixed;inset:0;display:none;z-index:9998;background:rgba(15,23,42,.50);backdrop-filter:blur(6px);padding:24px;overflow:auto}
+.p65-access-modal.show{display:block}.p65-panel{max-width:1280px;margin:0 auto;background:#f8fbfb;border-radius:24px;box-shadow:0 30px 90px rgba(15,23,42,.35);border:1px solid #cfe3de;overflow:hidden}.p65-head{background:linear-gradient(135deg,#063d3c,#0f766e);color:#fff;padding:18px 20px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.p65-head h3{margin:0;font-weight:950}.p65-head small{opacity:.9}.p65-x{border:0;border-radius:12px;background:rgba(255,255,255,.16);color:#fff;font-size:22px;font-weight:900;width:42px;height:42px}.p65-body{display:grid;grid-template-columns:410px minmax(0,1fr);gap:16px;padding:16px}.p65-card{background:#fff;border:1px solid #dbeceb;border-radius:18px;padding:14px;box-shadow:0 8px 22px rgba(7,58,66,.05)}.p65-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.p65-input,.p65-select{border:1px solid #cfe3de;border-radius:12px;padding:10px 12px;background:#fbfefd;min-height:42px}.p65-input{width:100%}.p65-btn{border:0;border-radius:12px;padding:10px 13px;font-weight:900;background:#0f766e;color:#fff}.p65-btn.soft{background:#dff7f2;color:#075e57}.p65-btn.warn{background:#f59e0b}.p65-btn.danger{background:#dc2626}.p65-btn.secondary{background:#e2e8f0;color:#334155}.p65-btn:disabled{opacity:.55}.p65-user-list{display:grid;gap:8px;max-height:620px;overflow:auto}.p65-user-row{border:1px solid #e2e8f0;border-radius:14px;padding:10px;background:#fff;cursor:pointer;display:flex;justify-content:space-between;gap:10px}.p65-user-row:hover,.p65-user-row.active{border-color:#0f766e;background:#f0fdfa}.p65-user-row b{display:block;color:#0f3f3b}.p65-user-row small{color:#64748b}.p65-pill{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:950;background:#e2e8f0;color:#334155}.p65-pill.admin{background:#ede9fe;color:#5b21b6}.p65-pill.active{background:#dcfce7;color:#166534}.p65-pill.inactive{background:#fee2e2;color:#991b1b}.p65-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.p65-field label{font-size:11px;text-transform:uppercase;font-weight:950;color:#355f5a;margin-bottom:5px}.p65-perm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.p65-module{border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc;padding:10px}.p65-module label{display:block;font-size:12px;font-weight:950;color:#334155;margin-bottom:6px}.p65-module select{width:100%}.p65-note{border:1px dashed #b9d9d5;background:#f8fffd;border-radius:14px;padding:10px;color:#475569;font-size:12px;margin-top:10px}.p65-admin-box{background:#ede9fe;border-color:#c4b5fd;color:#4c1d95}.p65-empty{border:1px dashed #cbd5e1;border-radius:14px;padding:14px;color:#64748b;background:#fff}.p65-foot{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:14px}
+@media(max-width:980px){.p65-body{grid-template-columns:1fr}.p65-editor-grid,.p65-perm-grid{grid-template-columns:1fr}.p65-access-modal{padding:8px}.p65-panel{border-radius:18px}}
+</style>
+
+<script>
+(function(){
+  var P65={data:null,selected:null,defaults:{}};
+  function q(id){return document.getElementById(id)}
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function val(id){var e=q(id); return e&&typeof e.value==='string'?e.value.trim():''}
+  function setVal(id,v){var e=q(id); if(e)e.value=v==null?'':String(v)}
+  function checked(id){var e=q(id); return !!(e&&e.checked)}
+  function loader(on){var el=q('loader'); if(el)el.style.display=on?'flex':'none'}
+  function notifyOk(msg){if(window.showSuccess)showSuccess(msg||'Done');else alert(msg||'Done')}
+  function notifyErr(msg){if(window.showError)showError(msg||'Something went wrong');else alert(msg||'Something went wrong')}
+
+  function ensureModal(){
+    if(q('p65AccessModal'))return;
+    var div=document.createElement('div');
+    div.id='p65AccessModal';
+    div.className='p65-access-modal';
+    div.innerHTML='<div class="p65-panel"><div class="p65-head"><div><h3>👥 User Access Management</h3><small>Module rights: None / View / Edit · Admin can override stages and direct CAPA actions</small></div><button class="p65-x" onclick="closeCmsAccessPanel()">×</button></div><div class="p65-body"><div class="p65-card"><div class="p65-toolbar"><input id="p65UserSearch" class="p65-input" placeholder="Search user/email/role" oninput="renderP65Users()"><button class="p65-btn soft" onclick="newP65User()">+ New User</button><button class="p65-btn secondary" onclick="loadCmsAccessPanelData()">Refresh</button></div><div id="p65UserList" class="p65-user-list"><div class="p65-empty">Loading users...</div></div></div><div class="p65-card"><div id="p65Editor"><div class="p65-empty">Select a user or create a new one.</div></div></div></div></div>';
+    document.body.appendChild(div);
+  }
+
+  function addButtons(){
+    if(q('p65AccessBtnDash'))return;
+    var target=document.querySelector('#dashboardPage .d-flex.justify-content-between div:last-child') || document.querySelector('#dashboardPage .d-flex');
+    if(target){var b=document.createElement('button');b.id='p65AccessBtnDash';b.type='button';b.className='p65-access-btn ms-2';b.innerHTML='👥 User Access';b.onclick=window.openCmsAccessPanel;target.appendChild(b)}
+    var target2=document.querySelector('#listPage .table-toolbar div:last-child');
+    if(target2&&!q('p65AccessBtnList')){var b2=document.createElement('button');b2.id='p65AccessBtnList';b2.type='button';b2.className='p65-access-btn ms-2';b2.innerHTML='👥 Access';b2.onclick=window.openCmsAccessPanel;target2.appendChild(b2)}
+  }
+
+  window.openCmsAccessPanel=function(){ensureModal();q('p65AccessModal').classList.add('show');loadCmsAccessPanelData()};
+  window.closeCmsAccessPanel=function(){var m=q('p65AccessModal'); if(m)m.classList.remove('show')};
+
+  window.loadCmsAccessPanelData=function(){
+    ensureModal(); loader(true);
+    google.script.run.withSuccessHandler(function(res){
+      loader(false);
+      if(!res||res.status!=='success'){notifyErr((res&&res.message)||'Access panel load failed');return;}
+      P65.data=res; P65.defaults=res.defaults||{};
+      renderP65Users();
+      if(res.users&&res.users.length){selectP65User(res.users[0].email)} else {newP65User()}
+    }).withFailureHandler(function(e){loader(false);notifyErr((e&&e.message)||'Access panel load failed')}).getCmsAccessPanelDataP6_5();
+  };
+
+  window.renderP65Users=function(){
+    var box=q('p65UserList'); if(!box)return;
+    var users=(P65.data&&P65.data.users)||[];
+    var s=val('p65UserSearch').toLowerCase();
+    if(s)users=users.filter(function(u){return [u.email,u.name,u.role].join(' ').toLowerCase().indexOf(s)>=0});
+    if(!users.length){box.innerHTML='<div class="p65-empty">No users found.</div>';return;}
+    box.innerHTML=users.map(function(u){var active=u.active!==false;var cls=(P65.selected&&P65.selected.email===u.email)?' active':'';return '<div class="p65-user-row'+cls+'" onclick="selectP65User(\''+esc(u.email)+'\')"><div><b>'+esc(u.name||u.email)+'</b><small>'+esc(u.email)+'</small><br><span class="p65-pill '+(u.isAdmin?'admin':'')+'">'+esc(u.role||'Viewer')+'</span></div><div><span class="p65-pill '+(active?'active':'inactive')+'">'+(active?'Active':'Inactive')+'</span></div></div>'}).join('');
+  };
+
+  window.selectP65User=function(email){
+    var users=(P65.data&&P65.data.users)||[];
+    P65.selected=users.filter(function(u){return u.email===email})[0]||null;
+    renderP65Users(); renderP65Editor(P65.selected||{});
+  };
+
+  window.newP65User=function(){P65.selected={email:'',name:'',role:'Viewer',active:true,permissions:(P65.defaults&&P65.defaults.Viewer)||{}};renderP65Users();renderP65Editor(P65.selected,true)};
+
+  function renderP65Editor(u,isNew){
+    var box=q('p65Editor'); if(!box)return;
+    var roles=(P65.data&&P65.data.roles)||['Admin','QA Team','Sales Team','Viewer'];
+    var modules=(P65.data&&P65.data.modules)||[];
+    var levels=(P65.data&&P65.data.accessLevels)||['NONE','VIEW','EDIT'];
+    var roleOpts=roles.map(function(r){return '<option '+(r===(u.role||'Viewer')?'selected':'')+'>'+esc(r)+'</option>'}).join('');
+    var perm=u.permissions||{};
+    var modHtml=modules.map(function(m){var cur=perm[m]||'NONE';return '<div class="p65-module"><label>'+esc(m)+'</label><select class="p65-select p65-perm" data-module="'+esc(m)+'">'+levels.map(function(l){return '<option value="'+l+'" '+(cur===l?'selected':'')+'>'+l+'</option>'}).join('')+'</select></div>'}).join('');
+    box.innerHTML='<div class="p65-editor-grid"><div class="p65-field"><label>Email</label><input id="p65Email" class="p65-input" '+(!isNew?'readonly':'')+' value="'+esc(u.email||'')+'" placeholder="user@romsons.com"></div><div class="p65-field"><label>Name</label><input id="p65Name" class="p65-input" value="'+esc(u.name||'')+'" placeholder="User name"></div><div class="p65-field"><label>Role</label><select id="p65Role" class="p65-select" onchange="applyP65RoleDefaults(false)">'+roleOpts+'</select></div><div class="p65-field"><label>Password '+(isNew?'':'(blank = unchanged)')+'</label><input id="p65Password" class="p65-input" placeholder="Set / reset password"></div><div class="p65-field"><label>Status</label><div><input type="checkbox" id="p65Active" '+(u.active!==false?'checked':'')+'> <b>Active user</b></div></div></div><div class="p65-note p65-admin-box"><b>Admin override:</b> Role Admin gets all modules as EDIT and can pass stages, upload CAPA directly, verify/close/reopen cases.</div><div class="p65-toolbar mt-3"><button class="p65-btn soft" onclick="applyP65RoleDefaults(true)">Apply Role Defaults</button><button class="p65-btn secondary" onclick="setAllP65Perms(\'VIEW\')">All View</button><button class="p65-btn secondary" onclick="setAllP65Perms(\'NONE\')">All None</button><button class="p65-btn secondary" onclick="setAllP65Perms(\'EDIT\')">All Edit</button></div><div class="p65-perm-grid">'+modHtml+'</div><div class="p65-foot"><button class="p65-btn" onclick="saveP65User()">Save Rights</button>'+(u.email?'<button class="p65-btn '+(u.active!==false?'danger':'soft')+'" onclick="toggleP65User()">'+(u.active!==false?'Deactivate':'Activate')+'</button>':'')+'<button class="p65-btn secondary" onclick="closeCmsAccessPanel()">Close</button></div>';
+  }
+
+  window.setAllP65Perms=function(level){document.querySelectorAll('.p65-perm').forEach(function(s){s.value=level})};
+  window.applyP65RoleDefaults=function(showMsg){
+    var role=val('p65Role')||'Viewer'; var defs=(P65.defaults&&P65.defaults[role])||{};
+    document.querySelectorAll('.p65-perm').forEach(function(s){var m=s.getAttribute('data-module'); s.value=defs[m]||'NONE'});
+    if(showMsg)notifyOk('Role defaults applied');
+  };
+
+  function collectPerms(){var p={};document.querySelectorAll('.p65-perm').forEach(function(s){p[s.getAttribute('data-module')]=s.value});return p}
+  window.saveP65User=function(){
+    var payload={email:val('p65Email'),name:val('p65Name'),password:val('p65Password'),role:val('p65Role'),active:checked('p65Active'),permissions:collectPerms()};
+    if(!payload.email){notifyErr('Email required');return;}
+    loader(true);
+    google.script.run.withSuccessHandler(function(res){loader(false);notifyOk((res&&res.message)||'User rights saved');P65.data.users=res.users||P65.data.users;selectP65User((res.user&&res.user.email)||payload.email)}).withFailureHandler(function(e){loader(false);notifyErr((e&&e.message)||'Save failed')}).saveCmsAccessUserP6_5(payload);
+  };
+  window.toggleP65User=function(){var u=P65.selected;if(!u||!u.email)return;loader(true);google.script.run.withSuccessHandler(function(res){loader(false);notifyOk(res.message||'Updated');P65.data.users=res.users||P65.data.users;selectP65User(u.email)}).withFailureHandler(function(e){loader(false);notifyErr((e&&e.message)||'Update failed')}).setCmsUserActiveP6_5(u.email,!(u.active!==false));};
+
+  function boot(){ensureModal();addButtons();}
+  setTimeout(boot,1200);setTimeout(boot,2500);
+  var oldShow=window.showPage;if(typeof oldShow==='function'){window.showPage=function(id){oldShow(id);setTimeout(addButtons,150)}}
+})();
+</script>

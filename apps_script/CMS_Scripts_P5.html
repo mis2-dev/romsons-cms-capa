@@ -1,0 +1,985 @@
+CMS main client script isolated from index template
+<script>
+
+const CMS_UPDATE_COMPLAINT_NO = String(window.CMS_UPDATE_COMPLAINT_NO || "");
+/* ================= CLOCK + PAGE ================= */
+setInterval(function(){
+  const el = document.getElementById('dt');
+  if (el) el.innerText = new Date().toLocaleString();
+},1000);
+
+function showLoader(v){
+  const el = document.getElementById('loader');
+  if (el) el.style.display = v ? 'flex' : 'none';
+}
+
+function showPage(pageId){
+  document.querySelectorAll('.app-page').forEach(function(p){
+    p.classList.remove('active');
+  });
+
+  const page = document.getElementById(pageId);
+  if (page) page.classList.add('active');
+
+  if (pageId === 'formPage') {
+    const appBox = document.getElementById('app');
+    if (appBox) appBox.style.display = 'block';
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function hideAllPages(){
+  document.querySelectorAll('.app-page').forEach(function(p){
+    p.classList.remove('active');
+  });
+}
+
+/* ================= MODAL HELPERS ================= */
+const notify = () => new bootstrap.Modal(document.getElementById("notifyModal"));
+const previewM = () => new bootstrap.Modal(document.getElementById("previewModal"));
+
+function showModal(title, body, footerHtml=""){
+  document.getElementById("notifyTitle").innerText = title || "Notification";
+  document.getElementById("notifyBody").innerText = body || "";
+  document.getElementById("notifyFooter").innerHTML = footerHtml || `
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">OK</button>
+  `;
+  notify().show();
+}
+function showError(msg){ showModal("❌ Error", msg); }
+function showInfo(title, msg){ showModal(title || "ℹ️ Info", msg); }
+function showSuccess(title, msg, complaintNo=""){
+  const footer = `
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+    <button type="button" class="btn btn-primary" onclick="fillAgain(); bootstrap.Modal.getInstance(document.getElementById('notifyModal')).hide();">
+      Fill Again
+    </button>
+  `;
+  showModal(title || "✅ Success", msg + (complaintNo ? `\n\nComplaint No: ${complaintNo}` : ""), footer);
+}
+
+/* ================= HELPERS ================= */
+function readFilesAsBase64(input){
+  return new Promise(resolve=>{
+    const files=[...input.files||[]];
+    if(!files.length) return resolve([]);
+    let res=[],c=0;
+    files.forEach(f=>{
+      const r=new FileReader();
+      r.onload=e=>{res.push(e.target.result); if(++c===files.length) resolve(res);};
+      r.readAsDataURL(f);
+    });
+  });
+}
+function v(id){
+  const el = document.getElementById(id);
+  return (el && typeof el.value === "string") ? el.value.trim() : "";
+}
+
+function escapeHtml(value){
+  return String(value == null ? "" : value)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function escapeJs(value){
+  return String(value == null ? "" : value)
+    .replaceAll("\\","\\\\")
+    .replaceAll("'","\\'")
+    .replaceAll("\n"," ");
+}
+
+function getStatusClass(status){
+  const s = String(status || "").toLowerCase();
+  if (s.includes("closed")) return "closed-status";
+  if (s.includes("reject") || s.includes("reopen")) return "rejected-status";
+  if (s.includes("booked") || s.includes("pending")) return "pending-status";
+  return "active-status";
+}
+
+
+function loadComplaints(){
+  google.script.run.withSuccessHandler(res=>{
+    const tbody = document.getElementById("complaintTable");
+    tbody.innerHTML="";
+
+    res.forEach(c=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${c.complaintNo}</td>
+        <td>${c.customer}</td>
+        <td>${c.product}</td>
+        <td>${c.status}</td>
+        <td>
+          <button onclick="viewComplaint(${c.row})">View</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }).getAllComplaints();
+}
+
+function viewComplaint(row){
+
+  const newStatus = prompt("Enter Status (Under Review / CAPA / Closed)");
+  const remark = prompt("Enter Remark");
+
+  if(!newStatus) return;
+
+  google.script.run
+    .withSuccessHandler(()=>{
+      alert("Updated");
+      loadComplaints();
+    })
+    .updateComplaintStatus(row, newStatus, remark);
+}
+/* ================= SESSION RESTORE ================= */
+function enterApp(user){
+  try{
+    const login = document.getElementById('loginBox');
+    if(login) login.style.display = 'none';
+
+    const appBox = document.getElementById('app');
+    if(appBox) appBox.style.display = 'block';
+
+    const receivedBy = document.getElementById('complainerName');
+    if(receivedBy){
+      receivedBy.value = user && user.name ? user.name : '';
+      receivedBy.readOnly = true;
+    }
+
+    const pill = document.getElementById('userPill');
+    if(pill) pill.innerText = `${(user && user.name) || 'User'} • ${(user && user.role) || 'User'}`;
+
+    sessionStorage.setItem("CMS_SESSION", JSON.stringify({
+      email:(user && user.email)||"",
+      name:(user && user.name)||"",
+      role:(user && user.role)||"",
+      savedAt:Date.now()
+    }));
+
+    if (CMS_UPDATE_COMPLAINT_NO) {
+      openPrefilledComplaintAfterLogin();
+    } else {
+      showPage('dashboardPage');
+      // Load dashboard after the page is visibly mounted. A data failure must not blank the app.
+      setTimeout(function(){
+        try{ loadCmsTrackingV2(); }
+        catch(err){ console.error('Dashboard load start failed:', err); }
+      }, 50);
+    }
+    return true;
+  }catch(err){
+    console.error('CMS enterApp failed:', err);
+    const login = document.getElementById('loginBox');
+    if(login) login.style.display = 'block';
+    hideAllPages();
+    throw err;
+  }
+}
+window.enterApp = enterApp;
+
+window.addEventListener("DOMContentLoaded", ()=>{
+  hideAllPages();
+  try{
+    const s = JSON.parse(sessionStorage.getItem("CMS_SESSION") || "null");
+    if(s && s.email){
+      showLoader(true);
+      google.script.run
+        .withSuccessHandler(res=>{
+          showLoader(false);
+          if(res && res.status==="active"){
+            enterApp(res);
+          }else{
+            sessionStorage.removeItem("CMS_SESSION");
+          }
+        })
+        .withFailureHandler(()=>{showLoader(false);})
+        .getSession();
+    }
+  }catch(e){}
+});
+
+/* ================= LOGIN ================= */
+function showLoginModal_(title, message, isSuccess, onClosed){
+  const titleEl = document.getElementById('notifyTitle');
+  const bodyEl = document.getElementById('notifyBody');
+  const footerEl = document.getElementById('notifyFooter');
+  const modalEl = document.getElementById('notifyModal');
+
+  if(!modalEl || typeof bootstrap === 'undefined'){
+    alert((title ? title + "\n\n" : "") + (message || ""));
+    if(typeof onClosed === 'function') onClosed();
+    return;
+  }
+
+  titleEl.innerText = title || (isSuccess ? 'Login Successful' : 'Login Failed');
+  bodyEl.innerText = message || '';
+  footerEl.innerHTML = `<button type="button" class="btn ${isSuccess ? 'btn-primary' : 'btn-secondary'}" data-bs-dismiss="modal">OK</button>`;
+
+  const instance = bootstrap.Modal.getOrCreateInstance(modalEl, {
+    backdrop: 'static',
+    keyboard: true
+  });
+
+  let handled = false;
+  const finish = function(){
+    if(handled) return;
+    handled = true;
+    modalEl.removeEventListener('hidden.bs.modal', finish);
+    if(typeof onClosed === 'function') onClosed();
+  };
+  modalEl.addEventListener('hidden.bs.modal', finish);
+  instance.show();
+}
+
+let CMS_LOGIN_IN_PROGRESS = false;
+function cmsAuthenticateUser(event){
+  if(event && event.preventDefault) event.preventDefault();
+  if(CMS_LOGIN_IN_PROGRESS) return false;
+
+  const emailEl = document.getElementById("emailField");
+  const passwordEl = document.getElementById("passwordField");
+  const loginBtn = document.getElementById("cmsLoginBtn");
+  const email = emailEl ? emailEl.value.trim() : "";
+  const pwd = passwordEl ? passwordEl.value : "";
+
+  if(!email || !pwd){
+    showLoginModal_('Login Required', 'Please enter both email and password.', false);
+    return false;
+  }
+
+  if(!window.google || !google.script || !google.script.run){
+    showLoginModal_('Connection Error', 'Apps Script connection is not ready. Refresh the page once and try again.', false);
+    return false;
+  }
+
+  CMS_LOGIN_IN_PROGRESS = true;
+  if(loginBtn){
+    loginBtn.disabled = true;
+    loginBtn.dataset.originalText = loginBtn.textContent;
+    loginBtn.textContent = 'Signing in…';
+  }
+  showLoader(true);
+
+  google.script.run
+    .withSuccessHandler(function(res){
+      showLoader(false);
+      CMS_LOGIN_IN_PROGRESS = false;
+      if(loginBtn){
+        loginBtn.disabled = false;
+        loginBtn.textContent = loginBtn.dataset.originalText || 'Login to CMS';
+      }
+
+      if(res && res.status === "success"){
+        showLoginModal_(
+          '✅ Login Successful',
+          `Welcome ${res.name || 'User'}. Your CMS dashboard is ready.`,
+          true,
+          function(){
+            try{
+              enterApp(res);
+            }catch(err){
+              showLoginModal_('Dashboard Error', (err && err.message) ? err.message : 'Dashboard could not be opened.', false);
+            }
+          }
+        );
+      }else{
+        showLoginModal_('❌ Login Failed', (res && res.message) ? res.message : 'Invalid email or password.', false);
+      }
+    })
+    .withFailureHandler(function(err){
+      showLoader(false);
+      CMS_LOGIN_IN_PROGRESS = false;
+      if(loginBtn){
+        loginBtn.disabled = false;
+        loginBtn.textContent = loginBtn.dataset.originalText || 'Login to CMS';
+      }
+      console.error("CMS login failed", err);
+      showLoginModal_('❌ Login Error', (err && err.message) ? err.message : 'Login request failed.', false);
+    })
+    .authenticateCmsLoginV2(email, pwd);
+
+  return false;
+}
+window.authenticateUser = cmsAuthenticateUser;
+window.cmsLoginNow = cmsAuthenticateUser;
+
+window.addEventListener("DOMContentLoaded", function(){
+  const loginBtn = document.getElementById("cmsLoginBtn");
+  if(loginBtn){
+    loginBtn.removeAttribute('onclick');
+    /* emergency login handler is attached inline */
+  }
+
+  [document.getElementById("emailField"), document.getElementById("passwordField")].forEach(function(el){
+    if(el){
+      el.addEventListener("keydown", function(event){
+        if(event.key === "Enter") cmsAuthenticateUser(event);
+      });
+    }
+  });
+});
+
+function logout(){
+  sessionStorage.removeItem("CMS_SESSION");
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(()=>{
+      showLoader(false);
+      const appBox = document.getElementById('app');
+      if (appBox) appBox.style.display="none";
+      hideAllPages();
+      loginBox.style.display="block";
+      emailField.value="";
+      passwordField.value="";
+      showInfo("Logged out", "You have been logged out successfully.");
+    })
+    .withFailureHandler(()=>{
+      showLoader(false);
+      const appBox = document.getElementById('app');
+      if (appBox) appBox.style.display="none";
+      hideAllPages();
+      loginBox.style.display="block";
+    })
+    .clearSession();
+}
+
+/* ================= BATCH FETCH ================= */
+
+function fetchBatch(){
+  debugger
+  const batch = batchNo.value.trim().toUpperCase();
+  if(!batch) return;
+
+  showLoader(true);
+
+  google.script.run
+    .withSuccessHandler(res=>{
+      showLoader(false);
+
+      const list = (res && Array.isArray(res.itemNames)) ? res.itemNames : [];
+
+      itemName.innerHTML = "";
+      itemName.classList.remove("d-none");
+      itemNameManual.classList.add("d-none");
+
+      if(list.length > 0){
+        if(list.length > 1){
+          const p = document.createElement("option");
+          p.value = "";
+          p.textContent = "Select Item Name";
+          itemName.appendChild(p);
+        }
+
+        list.forEach(name=>{
+          const o = document.createElement("option");
+          o.value = name;
+          o.textContent = name;
+          itemName.appendChild(o);
+        });
+
+        if(list.length === 1){
+          itemName.value = list[0];
+        }else{
+          itemName.value = "";
+        }
+      } else {
+        itemName.classList.add("d-none");
+        itemNameManual.classList.remove("d-none");
+        itemNameManual.value = "";
+        itemNameManual.focus();
+      }
+    })
+    .withFailureHandler(()=>{
+      showLoader(false);
+      showError("Batch lookup failed");
+    })
+    .getBatchLookupData(batch);
+}
+
+
+function fetchPincodeDetails(){
+  const pincode = v("pincode").replace(/\D/g, "");
+  if(!pincode) return;
+
+  if(!/^\d{6}$/.test(pincode)){
+    if(!v("city")) city.value = "";
+    state.value = "";
+    return;
+  }
+
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(res=>{
+      showLoader(false);
+
+      if(res && res.found){
+        if(!v("city")) city.value = res.city || "";
+        if(!v("state")) state.value = res.state || "";
+      } else {
+        if(!v("city")) city.value = "";
+        if(!v("state")) state.value = "";
+      }
+    })
+    .withFailureHandler(()=>{
+      showLoader(false);
+    })
+    .getPincodeDetails(pincode);
+}
+
+/* ================= FORM ACTIONS ================= */
+function refreshData(){
+  // keep login + name, just clear input parts (not removing options)
+  clearForm();
+}
+function clearForm(){
+  // don't clear complainerName (auto)
+  const keep = new Set(["complainerName"]);
+  document.querySelectorAll("#app input,#app textarea,#app select").forEach(e=>{
+    if(keep.has(e.id)) return;
+    if(e.type === "checkbox"){
+      e.checked = false;
+    }else{
+      e.value="";
+    }
+  });
+  itemName.innerHTML="";
+  itemName.classList.remove("d-none");
+  itemNameManual.classList.add("d-none");
+}
+
+/* ================= PDF PREVIEW ================= */
+function detailsPreview(){
+  const issue = v("issuesDropdown");
+
+  // Build preview table similar to server PDF
+  const data = {
+    "CAPA Ref No": "Preview (Generated after submit)",
+    "Complaint Date": v("complaintDate"),
+    "Batch No": v("batchNo"),
+    "Item Name": (itemName.classList.contains("d-none") ? v("itemNameManual") : (itemName.value||"")),
+    "Submitted At": new Date().toLocaleString(),
+    "Finding Severity": complaintType ? complaintType.value : "",
+    "Issue Category": issue || "—",
+    "Short Explain": v("subcategories"),
+    "Customer Type": customerType ? customerType.value : "",
+    "Complaint Mode": complaintMode ? complaintMode.value : "",
+    "Complaint Received Through": v("complainerName"),
+    "Customer Name": v("location"),
+    "Address": [v("address"), v("city"), v("state"), v("pincode")].filter(Boolean).join(", "),
+    "Qty Affected": v("qtyAffected"),
+    "Complaint Sample Available": (document.getElementById("sampleAvailable") && document.getElementById("sampleAvailable").checked) ? "Yes" : "No",
+    "Finding / Observation": v("description")
+  };
+
+  const tbody = document.getElementById("previewTable");
+  tbody.innerHTML = "";
+
+  Object.keys(data).forEach(k=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td style="border:1px solid #e5e7eb; padding:8px; width:32%; font-weight:700; background:#f9fafb;">${k}</td>
+      <td style="border:1px solid #e5e7eb; padding:8px;">${(data[k] || "—").toString().replaceAll("\n","<br>")}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  previewM().show();
+}
+
+function printPreview(){
+  const html = document.getElementById("previewA4").outerHTML;
+  const w = window.open("", "_blank");
+  w.document.write(`
+    <html><head><title>CAPA Preview</title>
+    <style>
+      body{margin:0;background:#fff;}
+      @page{size:A4; margin:12mm;}
+    </style>
+    </head><body>${html}</body></html>
+  `);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+/* ================= SUBMIT ================= */
+function submitComplaintUI(){
+
+  const issue = v("issuesDropdown");
+  if(!issue){
+    showError("Please select Issue Category");
+    return;
+  }
+
+  const payload = {
+  timestamp: new Date().toISOString(),
+
+  complaintDate: v("complaintDate"),
+  batchNo: v("batchNo"),
+  itemName: itemName.classList.contains("d-none")
+    ? v("itemNameManual")
+    : (itemName.value || ""),
+
+  complaintSeverity: complaintType ? complaintType.value : "",
+  issues: [issue],
+  subcategories: v("subcategories"),
+
+  customerType: customerType ? customerType.value : "",
+  complaintMode: complaintMode ? complaintMode.value : "",
+
+  location: v("location"),
+  address: v("address"),
+  city: v("city"),
+  state: v("state"),
+  pincode: v("pincode"),
+
+  complaint: v("description"),
+  qtyAffected: v("qtyAffected"),
+  sampleAvailable: !!(document.getElementById("sampleAvailable") && document.getElementById("sampleAvailable").checked),
+
+  images: [],
+  videos: []
+};
+
+if(
+  !payload.complaintDate ||
+  !payload.batchNo ||
+  !payload.itemName ||
+  !payload.customerType ||
+  !payload.complaintMode ||
+  !payload.location ||
+  !payload.address ||
+  !payload.city ||
+  !payload.state ||
+  !payload.pincode ||
+  !payload.subcategories ||
+  !payload.complaint
+){
+  showError("Please fill all required fields");
+  return;
+}
+
+  // basic pincode check (India)
+  if(!/^\d{6}$/.test(payload.pincode)){
+    showError("Please enter valid 6-digit pincode");
+    return;
+  }
+
+  showLoader(true);
+
+  readFilesAsBase64(imageFiles)
+    .then(img=>{
+      payload.images = img;
+      return readFilesAsBase64(videoFiles);
+    })
+    .then(vid=>{
+      payload.videos = vid;
+
+      google.script.run
+        .withSuccessHandler(res=>{
+          showLoader(false);
+          if(res && res.status === "success"){
+            showSuccess("✅ Complaint Submitted", "Your complaint has been submitted successfully.", res.complaintNo);
+            loadCmsTrackingV2();
+          } else {
+            showError(res?.message || "Submission failed");
+          }
+        })
+        .withFailureHandler(err=>{
+          showLoader(false);
+          showError("Server error during submission");
+          console.error(err);
+        })
+        .submitComplaint(payload);
+    });
+}
+
+function fillAgain(){
+  clearForm();
+}
+
+let CMS_ROWS = [];
+let CURRENT_COMPLAINT = null;
+let CURRENT_FY = "";
+
+function openPrefilledComplaintAfterLogin(){
+  if(!CMS_UPDATE_COMPLAINT_NO) return;
+  showPage('listPage');
+  loadCmsTrackingV2(function(){
+    setTimeout(function(){ openCmsDetail(CMS_UPDATE_COMPLAINT_NO); }, 250);
+  });
+}
+
+function loadCmsTrackingV2(done){
+  showLoader(true);
+  const fyEl = document.getElementById("fyFilter");
+  const fyToLoad = fyEl ? fyEl.value : CURRENT_FY;
+  google.script.run
+    .withSuccessHandler(res=>{
+      showLoader(false);
+      if(!res || res.status !== "success"){
+        showError("Tracking data load failed");
+        return;
+      }
+
+      CURRENT_FY = res.selectedFY || fyToLoad || "";
+      CMS_ROWS = res.rows || [];
+      renderFyOptions(res.fyOptions || [], CURRENT_FY);
+      renderCmsCards(res.cards || {});
+      renderCmsAnalytics(res.analytics || {});
+      renderCmsRows(CMS_ROWS);
+      if(typeof done === 'function') done();
+    })
+    .withFailureHandler(err=>{
+      showLoader(false);
+      showError("Complaint list load failed: " + ((err && err.message) ? err.message : err));
+      console.error(err);
+    })
+    .getCmsTrackingData(fyToLoad || null);
+}
+
+function renderFyOptions(options, selected){
+  const sel = document.getElementById("fyFilter");
+  const listSel = document.getElementById("listFyFilter");
+  [sel, listSel].forEach(function(el){
+    if(!el) return;
+    const current = selected || CURRENT_FY || el.value;
+    el.innerHTML = (options || []).map(function(o){
+      return `<option value="${escapeHtml(o.key)}" ${o.key===current?'selected':''}>${escapeHtml(o.label || o.key)}</option>`;
+    }).join('');
+  });
+}
+
+function changeFinancialYear(value){
+  CURRENT_FY = value || "";
+  const fyEl = document.getElementById("fyFilter");
+  const listFyEl = document.getElementById("listFyFilter");
+  if(fyEl) fyEl.value = CURRENT_FY;
+  if(listFyEl) listFyEl.value = CURRENT_FY;
+  loadCmsTrackingV2();
+}
+
+function renderCmsAnalytics(analytics){
+  renderMiniBars("stageAnalytics", analytics.byStage || []);
+  renderMiniBars("severityAnalytics", analytics.bySeverity || []);
+}
+
+function renderMiniBars(id, rows){
+  const box = document.getElementById(id);
+  if(!box) return;
+  if(!rows || !rows.length){ box.innerHTML = '<div class="text-muted small">No data</div>'; return; }
+  const max = Math.max.apply(null, rows.map(function(x){return Number(x.count)||0;})) || 1;
+  box.innerHTML = rows.map(function(x){
+    const count = Number(x.count)||0;
+    const pct = Math.max(4, Math.round((count/max)*100));
+    return `<div class="fy-bar-row"><div class="fy-bar-label">${escapeHtml(x.label)}</div><div class="fy-bar-track"><span style="width:${pct}%"></span></div><div class="fy-bar-count">${count}</div></div>`;
+  }).join('');
+}
+function renderCmsCards(cards){
+  document.getElementById("cmsTotal").innerText = cards.total || 0;
+  document.getElementById("cmsOpen").innerText = cards.open || 0;
+  document.getElementById("cmsClosed").innerText = cards.closed || 0;
+  document.getElementById("cmsOverdue").innerText = cards.overdue || 0;
+}
+
+function renderCmsRows(rows){
+  const tbody = document.getElementById("complaintTable");
+  tbody.innerHTML = "";
+
+  if(!rows.length){
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">No complaints found</td></tr>`;
+    return;
+  }
+
+  rows.forEach(c=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><b>${c.complaintNo}</b><br><small>${c.date || ""}</small></td>
+      <td>${c.customer || "—"}<br><small>${c.city || ""}</small></td>
+      <td>${c.product || "—"}<br><small>Batch: ${c.batch || "—"}</small></td>
+      <td>${c.severity || "—"}</td>
+      <td><span class="status-badge ${getStatusClass(c.status)}">${escapeHtml(c.status || "Complaint Booked")}</span></td>
+      <td>${c.ageDays || 0} days</td>
+      <td>
+        <button class="btn-soft" onclick="openCmsDetail('${escapeJs(c.complaintNo)}')">Track / View</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function getPublicTrackingUrl(complaintNo){
+  const base = window.location.href.split('?')[0];
+  return base + '?track=' + encodeURIComponent(complaintNo || '');
+}
+
+function filterCmsRows(){
+  const q = document.getElementById("searchBox").value.toLowerCase();
+  const st = document.getElementById("statusFilter").value;
+
+  const filtered = CMS_ROWS.filter(c=>{
+    const text = JSON.stringify(c).toLowerCase();
+    const okSearch = !q || text.includes(q);
+    const okStatus = !st || c.status === st;
+    return okSearch && okStatus;
+  });
+
+  renderCmsRows(filtered);
+}
+
+function openCmsDetail(complaintNo){
+  const c = CMS_ROWS.find(x => x.complaintNo === complaintNo);
+  if(!c) return;
+
+  CURRENT_COMPLAINT = c;
+
+  document.getElementById("detailTitle").innerText = c.complaintNo;
+  document.getElementById("detailBody").innerHTML = `
+    <div class="row g-2">
+      <div class="col-md-6"><b>Customer:</b> ${c.customer || "—"}</div>
+      <div class="col-md-6"><b>Product:</b> ${c.product || "—"}</div>
+      <div class="col-md-6"><b>Batch:</b> ${c.batch || "—"}</div>
+      <div class="col-md-6"><b>Severity:</b> ${c.severity || "—"}</div>
+      <div class="col-md-6"><b>Status:</b> ${escapeHtml(c.status || "Complaint Booked")}</div>
+      <div class="col-md-6"><b>Stage Owner:</b> ${escapeHtml(c.stageOwner || "—")}</div>
+      <div class="col-md-6"><b>CAPA Status:</b> ${escapeHtml(c.capaSubStatus || "Not started")}</div>
+      <div class="col-md-6"><b>CAPA Version:</b> ${escapeHtml(c.capaVersion || "—")}</div>
+      <div class="col-md-6"><b>WhatsApp:</b> ${escapeHtml(c.whatsappStatus || "—")}</div>
+      <div class="col-md-12 mt-2">
+        ${c.pdfUrl ? `<a class="btn-soft me-2" target="_blank" href="${c.pdfUrl}">Open PDF</a>` : ""}
+        ${c.folderUrl ? `<a class="btn-soft me-2" target="_blank" href="${c.folderUrl}">Open Folder</a>` : ""}
+        <a class="btn-soft" target="_blank" href="${getPublicTrackingUrl(c.complaintNo)}">Public Tracking</a>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("lifecycleRemark").value = "";
+  loadLifecycleActions(complaintNo);
+  loadCmsHistory(complaintNo);
+  loadComplaintTrackingUi(complaintNo);
+  loadInfoRequestModule(complaintNo);
+  loadP4Workspace(complaintNo);
+
+  new bootstrap.Modal(document.getElementById("cmsDetailModal")).show();
+}
+
+function loadCmsHistory(complaintNo){
+  google.script.run.withSuccessHandler(rows=>{
+    const box = document.getElementById("historyBox");
+
+    if(!rows || !rows.length){
+      box.innerHTML = `<div class="text-muted">No history found</div>`;
+      return;
+    }
+
+    box.innerHTML = rows.map(h=>`
+      <div class="history-item">
+        <b>${h.oldStatus || "—"} → ${h.newStatus || "—"}</b>
+        <div>${h.remark || ""}</div>
+        <small>${h.user || "System"} • ${h.time || ""}</small>
+      </div>
+    `).join("");
+  }).getCmsComplaintHistory(complaintNo);
+}
+
+
+function loadComplaintTrackingUi(complaintNo){
+  const stageBox = document.getElementById("stageProgress");
+  const logBox = document.getElementById("trackingLogList");
+  const sub = document.getElementById("trackingSubTitle");
+
+  if (sub) sub.innerText = "Complaint No: " + (complaintNo || "—");
+  if (stageBox) stageBox.innerHTML = `<div class="text-muted small">Loading tracking...</div>`;
+  if (logBox) logBox.innerHTML = "";
+
+  google.script.run
+    .withSuccessHandler(renderComplaintTrackingUi)
+    .withFailureHandler(function(err){
+      if (stageBox) stageBox.innerHTML = `<div class="text-danger small">Tracking load failed</div>`;
+      console.error(err);
+    })
+    .getCmsComplaintTracking(complaintNo);
+}
+
+function renderComplaintTrackingUi(res){
+  const stageBox = document.getElementById("stageProgress");
+  const logBox = document.getElementById("trackingLogList");
+  if (!stageBox || !logBox) return;
+
+  if (!res || res.status !== "success") {
+    stageBox.innerHTML = `<div class="text-danger small">Tracking data not available</div>`;
+    return;
+  }
+
+  stageBox.innerHTML = (res.stages || []).map(function(s){
+    const cls = String(s.status || "Pending").toLowerCase();
+    const icon = s.status === "Done" ? "✓" : (s.status === "Active" ? "•" : "✓");
+    return `
+      <div class="stage-box ${cls}">
+        <div class="stage-circle">${icon}</div>
+        <div class="stage-name">${escapeHtml(s.stage)}</div>
+      </div>
+    `;
+  }).join("");
+
+  const logs = res.logs || [];
+  if (!logs.length) {
+    logBox.innerHTML = `<div class="text-muted small py-2">No routing steps found.</div>`;
+    return;
+  }
+
+  logBox.innerHTML = logs.map(function(log){
+    const parts = splitDateTime(log.time || "");
+    return `
+      <div class="log-row">
+        <div>
+          <div class="log-date">${escapeHtml(parts.date || "—")}</div>
+          <div class="log-time">${escapeHtml(parts.time || "")}</div>
+        </div>
+        <div class="log-dot">✓</div>
+        <div>
+          <div class="log-stage">${escapeHtml(log.newStatus || log.stage || "—")}</div>
+          <div class="log-remarks">${escapeHtml(log.remark || "")}</div>
+          <div class="log-remarks">Updated by: ${escapeHtml(log.user || "System")}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function splitDateTime(value){
+  const s = String(value || "").trim();
+  if (!s) return { date:"", time:"" };
+  const parts = s.split(" ");
+  return {
+    date: parts.slice(0,1).join(" "),
+    time: parts.slice(1).join(" ")
+  };
+}
+
+function loadLifecycleActions(complaintNo){
+  const box = document.getElementById("lifecycleActions");
+  const current = document.getElementById("lifecycleCurrentStage");
+  const owner = document.getElementById("lifecycleStageOwner");
+  const capa = document.getElementById("lifecycleCapaStatus");
+  if(box) box.innerHTML = `<div class="lifecycle-empty">Checking your permitted actions...</div>`;
+  google.script.run
+    .withSuccessHandler(function(res){
+      if(!res || res.status !== "success") return;
+      if(current) current.textContent = res.currentStage || "—";
+      if(owner) owner.textContent = res.stageOwner || "—";
+      if(capa) capa.textContent = res.capaSubStatus ? `${res.capaSubStatus}${res.capaVersion ? " · V"+res.capaVersion : ""}` : "Not started";
+      const actions = res.actions || [];
+      if(!actions.length){ box.innerHTML = `<div class="lifecycle-empty">No action is pending for your role at this stage.</div>`; return; }
+      box.innerHTML = actions.map(function(a){
+        let cls = "";
+        if(a.code === "REQUEST_CAPA_REVISION") cls = "warning";
+        if(a.code === "REOPEN_CASE") cls = "admin";
+        return `<button class="lifecycle-action ${cls}" onclick="runLifecycleAction('${escapeJs(a.code)}', ${a.remarkRequired ? 'true':'false'})">${escapeHtml(a.label)}</button>`;
+      }).join("");
+    })
+    .withFailureHandler(function(err){ box.innerHTML = `<div class="lifecycle-empty text-danger">${escapeHtml(err && err.message ? err.message : "Action load failed")}</div>`; })
+    .getAllowedCmsLifecycleActions(complaintNo);
+}
+
+function runLifecycleAction(actionCode, remarkRequired){
+  if(!CURRENT_COMPLAINT) return;
+  const remark = v("lifecycleRemark");
+  if(remarkRequired && !remark){ showError("Please enter a clear remark before completing this action."); return; }
+  const labels = {
+    START_REVIEW:"Start Review", REQUEST_MORE_INFO:"Request More Information", START_INVESTIGATION:"Start Investigation",
+    COMPLETE_INVESTIGATION:"Complete Investigation", MARK_CAPA_UPLOADED:"Mark CAPA Uploaded",
+    UPLOAD_REVISED_CAPA:"Upload Revised CAPA", VERIFY_CAPA:"Verify CAPA",
+    REQUEST_CAPA_REVISION:"Request CAPA Revision", REOPEN_CASE:"Reopen Case"
+  };
+  if(!confirm(`Confirm: ${labels[actionCode] || actionCode}?`)) return;
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(function(res){
+      showLoader(false);
+      if(!res || res.status !== "success"){ showError(res && res.message ? res.message : "Action failed"); return; }
+      showInfo("Lifecycle Updated", res.message || "Action completed successfully");
+      document.getElementById("lifecycleRemark").value = "";
+      loadCmsTrackingV2(function(){
+        CURRENT_COMPLAINT = CMS_ROWS.find(x => x.complaintNo === res.complaintNo) || CURRENT_COMPLAINT;
+        loadLifecycleActions(res.complaintNo);
+      });
+      loadCmsHistory(res.complaintNo);
+      loadComplaintTrackingUi(res.complaintNo);
+    })
+    .withFailureHandler(function(err){ showLoader(false); showError(err && err.message ? err.message : "Lifecycle action failed"); })
+    .executeCmsLifecycleAction(CURRENT_COMPLAINT.complaintNo, actionCode, remark);
+}
+
+// Dashboard data loads after successful login/session restore.
+
+/* ================= P4 INVESTIGATION + CAPA ================= */
+function fileToDataUrl(id){
+  return new Promise(function(resolve,reject){const el=document.getElementById(id),f=el&&el.files&&el.files[0];if(!f)return resolve('');const r=new FileReader();r.onload=function(e){resolve(e.target.result)};r.onerror=reject;r.readAsDataURL(f);});
+}
+function loadP4Workspace(complaintNo){
+  const box=document.getElementById('p4WorkspaceContent'); if(box) box.innerHTML='<div class="info-empty">Loading investigation and CAPA workspace...</div>';
+  google.script.run.withSuccessHandler(renderP4Workspace).withFailureHandler(function(e){if(box)box.innerHTML='<div class="text-danger">'+escapeHtml(e&&e.message?e.message:'Workspace load failed')+'</div>';}).getCmsInvestigationCapaWorkspace(complaintNo);
+}
+function renderP4Workspace(res){
+  const box=document.getElementById('p4WorkspaceContent'); if(!box||!res||res.status!=='success')return;
+  const inv=res.investigation||{}, capa=res.capa||{}, p=res.permissions||{};
+  let html='<div class="p4-alert mb-3">Current Stage: '+escapeHtml(res.currentStage)+' · CAPA: '+escapeHtml(res.capaSubStatus||'Not started')+'</div>';
+  html+='<div class="p4-head"><div><h6>Investigation Workspace</h6><div class="text-muted small">QA findings, root cause, testing and conclusion</div></div></div>';
+  if(p.canInvestigationEdit){html+=`<div class="p4-grid"><div class="full"><label>Investigation Summary *</label><textarea id="p4InvSummary" class="form-control" rows="3">${escapeHtml(inv.summary||'')}</textarea></div><div><label>Root Cause *</label><textarea id="p4RootCause" class="form-control" rows="3">${escapeHtml(inv.rootCause||'')}</textarea></div><div><label>Batch Findings</label><textarea id="p4BatchFindings" class="form-control" rows="3">${escapeHtml(inv.batchFindings||'')}</textarea></div><div><label>Sample / Testing Details</label><textarea id="p4Testing" class="form-control" rows="3">${escapeHtml(inv.testingDetails||'')}</textarea></div><div><label>Conclusion *</label><textarea id="p4Conclusion" class="form-control" rows="3">${escapeHtml(inv.conclusion||'')}</textarea></div><div class="full"><label>Supporting Attachment</label><input id="p4InvFile" type="file" class="form-control" accept=".pdf,.doc,.docx,image/*"></div></div><div class="p4-actions"><button class="btn-soft" onclick="saveP4Investigation(false)">Save Draft</button><button class="btn-primary-custom" onclick="saveP4Investigation(true)">Complete Investigation</button></div>`;}else if(inv.summary){html+=`<div class="p4-readonly"><div><b>Summary:</b> ${escapeHtml(inv.summary)}</div><div class="mt-2"><b>Root Cause:</b> ${escapeHtml(inv.rootCause||'—')}</div><div class="mt-2"><b>Conclusion:</b> ${escapeHtml(inv.conclusion||'—')}</div>${inv.attachmentUrl?`<a class="p4-file mt-2" target="_blank" href="${inv.attachmentUrl}">Open Investigation Evidence</a>`:''}</div>`;}else{html+='<div class="info-empty">Investigation workspace will activate after QA starts investigation.</div>';}
+  html+='<hr><div class="p4-head"><div><h6>CAPA Document Management</h6><div class="text-muted small">Upload, version, revision and Sales verification</div></div></div>';
+  if(capa.documentUrl){html+=`<div class="p4-readonly mb-3"><div><b>Latest Version:</b> V${escapeHtml(capa.version||'')}</div><div class="mt-1"><b>Status:</b> ${escapeHtml(capa.status||res.capaSubStatus||'')}</div><div class="mt-1"><b>Uploaded By:</b> ${escapeHtml(capa.uploadedBy||'—')} · ${escapeHtml(capa.uploadedAt||'')}</div>${capa.revisionReason?`<div class="mt-2 text-danger"><b>Revision Reason:</b> ${escapeHtml(capa.revisionReason)}</div>`:''}<a class="p4-file mt-2" target="_blank" href="${capa.documentUrl}">Open CAPA Document</a></div>`;}
+  if(p.canUploadCapa){html+=`<div class="p4-grid"><div class="full"><label>CAPA Document *</label><input id="p4CapaFile" type="file" class="form-control" accept=".pdf,.doc,.docx"></div><div><label>Corrective Action *</label><textarea id="p4Corrective" class="form-control" rows="3"></textarea></div><div><label>Preventive Action *</label><textarea id="p4Preventive" class="form-control" rows="3"></textarea></div><div class="full"><label>QA Remark</label><textarea id="p4QaRemark" class="form-control" rows="2"></textarea></div></div><div class="p4-actions"><button class="btn-primary-custom" onclick="uploadP4Capa()">${res.capaSubStatus==='Revision Requested'?'Upload Revised CAPA':'Upload CAPA'}</button></div>`;}
+  if(p.canVerifyCapa||p.canRequestRevision){html+=`<div class="p4-grid"><div class="full"><label>Sales Review / Verification Remark *</label><textarea id="p4SalesRemark" class="form-control" rows="3" placeholder="Confirm document review or explain required revision"></textarea></div></div><div class="p4-actions">${p.canVerifyCapa?'<button class="btn-primary-custom" onclick="verifyP4Capa()">Verify CAPA & Close Case</button>':''}${p.canRequestRevision?'<button class="lifecycle-action warning" onclick="reviseP4Capa()">Request CAPA Revision</button>':''}</div>`;}
+  box.innerHTML=html;
+}
+async function saveP4Investigation(completeNow){if(!CURRENT_COMPLAINT)return;const payload={summary:v('p4InvSummary'),rootCause:v('p4RootCause'),batchFindings:v('p4BatchFindings'),testingDetails:v('p4Testing'),conclusion:v('p4Conclusion'),attachmentDataUrl:await fileToDataUrl('p4InvFile')};showLoader(true);google.script.run.withSuccessHandler(p4Done).withFailureHandler(p4Fail).saveCmsInvestigation(CURRENT_COMPLAINT.complaintNo,payload,!!completeNow);}
+async function uploadP4Capa(){if(!CURRENT_COMPLAINT)return;const payload={documentDataUrl:await fileToDataUrl('p4CapaFile'),correctiveAction:v('p4Corrective'),preventiveAction:v('p4Preventive'),qaRemark:v('p4QaRemark')};showLoader(true);google.script.run.withSuccessHandler(p4Done).withFailureHandler(p4Fail).uploadCmsCapaDocument(CURRENT_COMPLAINT.complaintNo,payload);}
+function verifyP4Capa(){const r=v('p4SalesRemark');if(!r)return showError('Verification remark is required');if(!confirm('Verify CAPA and close this case?'))return;showLoader(true);google.script.run.withSuccessHandler(p4Done).withFailureHandler(p4Fail).verifyCmsCapaDocument(CURRENT_COMPLAINT.complaintNo,r);}
+function reviseP4Capa(){const r=v('p4SalesRemark');if(!r)return showError('Revision reason is required');showLoader(true);google.script.run.withSuccessHandler(p4Done).withFailureHandler(p4Fail).requestCmsCapaRevision(CURRENT_COMPLAINT.complaintNo,r);}
+function p4Done(res){showLoader(false);showInfo('Updated',res&&res.message?res.message:'Action completed');if(CURRENT_COMPLAINT){loadCmsTrackingV2(function(){openCmsDetail(CURRENT_COMPLAINT.complaintNo);});}}
+function p4Fail(err){showLoader(false);showError(err&&err.message?err.message:'P4 action failed');}
+
+
+/* ===== Apps Script iframe global exports =====
+   Inline onclick handlers can only resolve properties on window. */
+Object.assign(window, {
+  showPage: showPage,
+  hideAllPages: hideAllPages,
+  showLoader: showLoader,
+  showModal: showModal,
+  showError: showError,
+  showInfo: showInfo,
+  showSuccess: showSuccess,
+  refreshData: refreshData,
+  clearForm: clearForm,
+  detailsPreview: detailsPreview,
+  printPreview: printPreview,
+  submitComplaintUI: submitComplaintUI,
+  fillAgain: fillAgain,
+  logout: logout,
+  fetchBatch: fetchBatch,
+  fetchPincodeDetails: fetchPincodeDetails,
+  loadCmsTrackingV2: loadCmsTrackingV2,
+  changeFinancialYear: changeFinancialYear,
+  filterCmsRows: filterCmsRows,
+  openCmsDetail: openCmsDetail,
+  loadCmsHistory: loadCmsHistory,
+  loadComplaintTrackingUi: loadComplaintTrackingUi,
+  loadLifecycleActions: loadLifecycleActions,
+  runLifecycleAction: runLifecycleAction,
+  loadP4Workspace: loadP4Workspace,
+  saveP4Investigation: saveP4Investigation,
+  uploadP4Capa: uploadP4Capa,
+  verifyP4Capa: verifyP4Capa,
+  reviseP4Capa: reviseP4Capa
+});
+
+
+</script>
